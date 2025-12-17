@@ -1,0 +1,25 @@
+{
+  "name": "Pro Auth DevContainer",
+  "dockerComposeFile": ["../docker-compose.yml"],
+  "service": "pro-auth-svs",
+  "workspaceFolder": "/workspace/pro-auth-svs",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "vmware.vscode-spring-boot",
+        "vscjava.vscode-java-pack",
+        "vscjava.vscode-spring-boot-dashboard",
+        "vscjava.vscode-maven",
+        "ms-azuretools.vscode-docker",
+        "redhat.java",
+        "ms-vscode.vscode-json",
+        "oderwat.indent-rainbow",
+        "esbenp.prettier-vscode"
+      ],
+      "settings": {
+        "java.configuration.updateBuildConfiguration": "automatic",
+        "maven.terminal.useJavaHome": true
+      }
+    }
+  }
+}

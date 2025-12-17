@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  pro-auth-svs:
+    build:
+      context: .devcontainer
+      dockerfile: Dockerfile
+    container_name: pro-auth-service
+    volumes:
+      - .:/workspace/pro-auth-svs
+      - maven-data:/root/.m2
+    working_dir: /workspace
+    env_file:
+      - ./.env
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_R2DBC_URL: r2dbc:postgresql://postgres:5432/${POSTGRES_DATABASE}
+      SPRING_R2DBC_USERNAME: ${POSTGRES_USER}
+      SPRING_R2DBC_PASSWORD: ${POSTGRES_ROOT_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ACCESS_TOKEN_EXPIRATION: ${JWT_ACCESS_EXPIRATION_MS}
+      JWT_REFRESH_TOKEN_EXPIRATION: ${JWT_REFRESH_EXPIRATION_MS}
+      SERVER_PORT: ${SPRING_DOCKER_PORT}
+    ports:
+      - "${SPRING_LOCAL_PORT}:${SPRING_DOCKER_PORT}"
+    networks:
+      - core-network
+
+volumes:
+  maven-data:
+
+networks:
+  core-network:
+    external: true
