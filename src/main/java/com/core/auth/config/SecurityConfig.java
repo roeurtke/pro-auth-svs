@@ -22,7 +22,7 @@ import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 import java.util.Arrays;
 
 @Configuration
-@EnableConfigurationProperties({Argon2Properties.class, MfaProperties.class})
+@EnableConfigurationProperties({Argon2Properties.class, MfaProperties.class, DatabaseProperties.class})
 @EnableWebFluxSecurity
 @EnableReactiveMethodSecurity
 @RequiredArgsConstructor

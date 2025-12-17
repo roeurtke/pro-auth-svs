@@ -4,6 +4,7 @@ import io.r2dbc.spi.ConnectionFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
@@ -16,9 +17,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
+/**
+ * @author Roeurt Kesei
+ * Database configuration class to initialize the database schema and seed data
+ */
 @Slf4j
 @Configuration
-@EnableR2dbcRepositories(basePackages = "com.auth.repository")
+@EnableR2dbcRepositories(basePackages = "com.core.auth.repository")
 @RequiredArgsConstructor
 @EnableScheduling
 public class DatabaseConfig {
@@ -31,10 +36,13 @@ public class DatabaseConfig {
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
     
     /**
-     * Initialize database schema and run migrations
+     * Initialize database schema using SQL migration files
      */
     @Bean
-    public ConnectionFactoryInitializer initializer(ConnectionFactory connectionFactory) {
+    @ConditionalOnProperty(prefix = "app.db", name = "init", havingValue = "true", matchIfMissing = false)
+    public ConnectionFactoryInitializer databaseInitializer(ConnectionFactory connectionFactory) {
+        log.info("Initializing database schema...");
+        
         ConnectionFactoryInitializer initializer = new ConnectionFactoryInitializer();
         initializer.setConnectionFactory(connectionFactory);
         
@@ -48,31 +56,35 @@ public class DatabaseConfig {
         );
         
         initializer.setDatabasePopulator(populator);
+        
         return initializer;
     }
     
     /**
-     * Seed initial data after application starts
+     * Seed initial data after database schema is created
      */
     @Bean
+    @ConditionalOnProperty(prefix = "app.db", name = "init", havingValue = "true", matchIfMissing = false)
+    @Transactional
     public CommandLineRunner seedData() {
         return args -> {
+            log.info("Starting database seeding...");
+            
             seedPermissions()
                 .then(seedRoles())
                 .then(seedAdminUser())
                 .then(assignPermissionsToRoles())
-                .subscribe(
-                    result -> log.info("Database seeding completed successfully"),
-                    error -> log.error("Database seeding failed: {}", error.getMessage())
-                );
+                .then(assignAdminRole())
+                .doOnSuccess(result -> log.info("✅ Database initialization completed!"))
+                .doOnError(error -> log.error("❌ Database initialization failed: {}", error.getMessage()))
+                .subscribe();
         };
     }
     
     /**
      * Seed default permissions
      */
-    @Transactional
-    public reactor.core.publisher.Mono<Void> seedPermissions() {
+    private reactor.core.publisher.Mono<Void> seedPermissions() {
         log.info("Seeding permissions...");
         
         return permissionRepository.deleteAll()
@@ -255,14 +267,14 @@ public class DatabaseConfig {
             ))
             .flatMap(permissionRepository::save)
             .then()
-            .doOnSuccess(v -> log.info("Permissions seeded successfully"));
+            .doOnSuccess(v -> log.info("Permissions seeded successfully"))
+            .doOnError(e -> log.error("Failed to seed permissions: {}", e.getMessage()));
     }
     
     /**
      * Seed default roles
      */
-    @Transactional
-    public reactor.core.publisher.Mono<Void> seedRoles() {
+    private reactor.core.publisher.Mono<Void> seedRoles() {
         log.info("Seeding roles...");
         
         return roleRepository.deleteAll()
@@ -314,14 +326,14 @@ public class DatabaseConfig {
             ))
             .flatMap(roleRepository::save)
             .then()
-            .doOnSuccess(v -> log.info("Roles seeded successfully"));
+            .doOnSuccess(v -> log.info("Roles seeded successfully"))
+            .doOnError(e -> log.error("Failed to seed roles: {}", e.getMessage()));
     }
     
     /**
      * Create default admin user
      */
-    @Transactional
-    public reactor.core.publisher.Mono<Void> seedAdminUser() {
+    private reactor.core.publisher.Mono<Void> seedAdminUser() {
         log.info("Creating admin user...");
         
         return userRepository.findByUsername("admin")
@@ -345,6 +357,7 @@ public class DatabaseConfig {
                         .build()
                 )
                 .doOnSuccess(user -> log.info("Admin user created with ID: {}", user.getId()))
+                .doOnError(e -> log.error("Failed to create admin user: {}", e.getMessage()))
             )
             .then();
     }
@@ -352,8 +365,7 @@ public class DatabaseConfig {
     /**
      * Assign permissions to roles
      */
-    @Transactional
-    public reactor.core.publisher.Mono<Void> assignPermissionsToRoles() {
+    private reactor.core.publisher.Mono<Void> assignPermissionsToRoles() {
         log.info("Assigning permissions to roles...");
         
         return rolePermissionRepository.deleteAll()
@@ -412,21 +424,19 @@ public class DatabaseConfig {
                 
                 return rolePermissionRepository.saveAll(rolePermissions)
                     .collectList()
-                    .doOnSuccess(saved -> log.info("Assigned {} permissions to roles", saved.size()));
+                    .doOnSuccess(saved -> log.info("Assigned {} permissions to roles", saved.size()))
+                    .doOnError(e -> log.error("Failed to assign permissions: {}", e.getMessage()));
             })
-            .then()
-            .doOnSuccess(v -> {
-                log.info("Assigning SUPER_ADMIN role to admin user...");
-                assignSuperAdminRole();
-            });
+            .then();
     }
     
     /**
      * Assign SUPER_ADMIN role to admin user
      */
-    @Transactional
-    public void assignSuperAdminRole() {
-        userRepository.findByUsername("admin")
+    private reactor.core.publisher.Mono<Void> assignAdminRole() {
+        log.info("Assigning SUPER_ADMIN role to admin user...");
+        
+        return userRepository.findByUsername("admin")
             .zipWith(roleRepository.findByCode("SUPER_ADMIN"))
             .flatMap(tuple -> {
                 com.core.auth.model.User adminUser = tuple.getT1();
@@ -438,30 +448,28 @@ public class DatabaseConfig {
             })
             .doOnSuccess(v -> log.info("SUPER_ADMIN role assigned to admin user"))
             .doOnError(e -> log.error("Failed to assign SUPER_ADMIN role: {}", e.getMessage()))
-            .subscribe();
+            .then();
     }
     
     /**
-     * Clean up expired tokens (runs daily)
+     * Clean up expired tokens (runs daily at 2 AM)
      */
-    @org.springframework.scheduling.annotation.Scheduled(cron = "0 0 2 * * ?") // Daily at 2 AM
+    @org.springframework.scheduling.annotation.Scheduled(cron = "0 0 2 * * ?")
+    @ConditionalOnProperty(prefix = "app.db", name = "cleanup.enabled", havingValue = "true", matchIfMissing = true)
     @Transactional
     public void cleanupExpiredTokens() {
         log.info("Cleaning up expired tokens...");
-        
-        // This would be implemented when TokenRepository is available
-        // tokenRepository.deleteExpiredTokens(LocalDateTime.now()).subscribe();
+        // Implement when TokenRepository is available
     }
     
     /**
      * Clean up inactive sessions (runs hourly)
      */
-    @org.springframework.scheduling.annotation.Scheduled(cron = "0 0 * * * ?") // Hourly
+    @org.springframework.scheduling.annotation.Scheduled(cron = "0 0 * * * ?")
+    @ConditionalOnProperty(prefix = "app.db", name = "cleanup.enabled", havingValue = "true", matchIfMissing = true)
     @Transactional
     public void cleanupInactiveSessions() {
         log.info("Cleaning up inactive sessions...");
-        
-        // This would be implemented when SessionRepository is available
-        // sessionRepository.deleteExpiredSessions(LocalDateTime.now()).subscribe();
+        // Implement when SessionRepository is available
     }
 }
