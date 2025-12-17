@@ -49,6 +49,20 @@
             <artifactId>spring-boot-starter-aspectj</artifactId>
             <!-- No version needed – managed by spring-boot-starter-parent 4.0.0 -->
         </dependency>
+
+        <!-- Lombok -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>  <!-- Important: 'provided' so it's not bundled at runtime -->
+        </dependency>
+
+        <!-- Configuration Processor -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <optional>true</optional>
+        </dependency>
         
         <!-- Database -->
         <dependency>
