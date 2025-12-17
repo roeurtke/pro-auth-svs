@@ -13,9 +13,9 @@
     </parent>
     
     <groupId>com.auth</groupId>
-    <artifactId>auth-service</artifactId>
+    <artifactId>pro-auth-service</artifactId>
     <version>1.0.0</version>
-    <name>auth-service</name>
+    <name>pro-auth-service</name>
     <description>Reactive Authentication and Authorization Service</description>
     
     <properties>
