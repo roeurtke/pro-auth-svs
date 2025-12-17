@@ -14,12 +14,24 @@ services:
       - ./.env
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      # Database Configuration
       SPRING_R2DBC_URL: r2dbc:postgresql://postgres:5432/${POSTGRES_DATABASE}
       SPRING_R2DBC_USERNAME: ${POSTGRES_USER}
       SPRING_R2DBC_PASSWORD: ${POSTGRES_ROOT_PASSWORD}
+      SPRING_R2DBC_POOL_INITIAL_SIZE: 5
+      SPRING_R2DBC_POOL_MAX_SIZE: 20
+      # Flyway Configuration
+      SPRING_FLYWAY_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DATABASE}
+      SPRING_FLYWAY_USER: ${POSTGRES_USER}
+      SPRING_FLYWAY_PASSWORD: ${POSTGRES_ROOT_PASSWORD}
+      SPRING_FLYWAY_LOCATIONS: classpath:db/migration
+      SPRING_FLYWAY_BASELINE_ON_MIGRATE: true
+      # JWT Configuration
       JWT_SECRET: ${JWT_SECRET}
       JWT_ACCESS_TOKEN_EXPIRATION: ${JWT_ACCESS_EXPIRATION_MS}
       JWT_REFRESH_TOKEN_EXPIRATION: ${JWT_REFRESH_EXPIRATION_MS}
+      JWT_ISSUER: pro-auth-svs
+      # Server Configuration
       SERVER_PORT: ${SPRING_DOCKER_PORT}
     ports:
       - "${SPRING_LOCAL_PORT}:${SPRING_DOCKER_PORT}"
