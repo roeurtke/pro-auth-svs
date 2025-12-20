@@ -1,14 +1,14 @@
--- Drop existing tables if they exist (for clean setup)
-DROP TABLE IF EXISTS tbl_role_permission CASCADE;
-DROP TABLE IF EXISTS tbl_user_role CASCADE;
-DROP TABLE IF EXISTS tbl_permission CASCADE;
-DROP TABLE IF EXISTS tbl_role CASCADE;
-DROP TABLE IF EXISTS tbl_audit_log CASCADE;
-DROP TABLE IF EXISTS tbl_session CASCADE;
-DROP TABLE IF EXISTS tbl_token CASCADE;
-DROP TABLE IF EXISTS tbl_mfa CASCADE;
-DROP TABLE IF EXISTS tbl_api_client CASCADE;
-DROP TABLE IF EXISTS tbl_user CASCADE;
+-- Drop existing tables if they exist
+DROP TABLE IF EXISTS tbl_role_permission;
+DROP TABLE IF EXISTS tbl_user_role;
+DROP TABLE IF EXISTS tbl_permission;
+DROP TABLE IF EXISTS tbl_role;
+DROP TABLE IF EXISTS tbl_audit_log;
+DROP TABLE IF EXISTS tbl_session;
+DROP TABLE IF EXISTS tbl_token;
+DROP TABLE IF EXISTS tbl_mfa;
+DROP TABLE IF EXISTS tbl_api_client;
+DROP TABLE IF EXISTS tbl_user;
 
 -- Create tables
 CREATE TABLE tbl_user (
@@ -52,16 +52,16 @@ CREATE TABLE tbl_permission (
 
 CREATE TABLE tbl_user_role (
     id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL REFERENCES tbl_user(id) ON DELETE CASCADE,
-    role_id BIGINT NOT NULL REFERENCES tbl_role(id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL,
+    role_id BIGINT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(user_id, role_id)
 );
 
 CREATE TABLE tbl_role_permission (
     id BIGSERIAL PRIMARY KEY,
-    role_id BIGINT NOT NULL REFERENCES tbl_role(id) ON DELETE CASCADE,
-    permission_id BIGINT NOT NULL REFERENCES tbl_permission(id) ON DELETE CASCADE,
+    role_id BIGINT NOT NULL,
+    permission_id BIGINT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(role_id, permission_id)
 );
@@ -126,9 +126,9 @@ CREATE TABLE tbl_api_client (
     client_secret VARCHAR(255) NOT NULL,
     name VARCHAR(100) NOT NULL,
     description TEXT,
-    scopes TEXT[],
-    redirect_uris TEXT[],
-    grant_types TEXT[],
+    scopes TEXT,
+    redirect_uris TEXT,
+    grant_types TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP,
     active BOOLEAN DEFAULT true,

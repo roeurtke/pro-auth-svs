@@ -1,58 +1,47 @@
--- Additional indexes for join tables
-CREATE INDEX idx_user_role_created ON tbl_user_role(created_at);
-CREATE INDEX idx_role_permission_created ON tbl_role_permission(created_at);
+-- Create indexes for performance
+CREATE INDEX IF NOT EXISTS idx_user_username ON tbl_user(username);
+CREATE INDEX IF NOT EXISTS idx_user_email ON tbl_user(email);
+CREATE INDEX IF NOT EXISTS idx_user_enabled ON tbl_user(enabled);
+CREATE INDEX IF NOT EXISTS idx_user_locked ON tbl_user(locked);
 
--- Function to update updated_at timestamp
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
+CREATE INDEX IF NOT EXISTS idx_role_code ON tbl_role(code);
+CREATE INDEX IF NOT EXISTS idx_role_system ON tbl_role(system_role);
 
--- Triggers for automatic updated_at
-CREATE TRIGGER update_user_updated_at BEFORE UPDATE ON tbl_user
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE INDEX IF NOT EXISTS idx_permission_code ON tbl_permission(code);
+CREATE INDEX IF NOT EXISTS idx_permission_category ON tbl_permission(category);
 
-CREATE TRIGGER update_role_updated_at BEFORE UPDATE ON tbl_role
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE INDEX IF NOT EXISTS idx_user_role_user ON tbl_user_role(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_role_role ON tbl_user_role(role_id);
+CREATE INDEX IF NOT EXISTS idx_user_role_composite ON tbl_user_role(user_id, role_id);
 
-CREATE TRIGGER update_permission_updated_at BEFORE UPDATE ON tbl_permission
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE INDEX IF NOT EXISTS idx_role_permission_role ON tbl_role_permission(role_id);
+CREATE INDEX IF NOT EXISTS idx_role_permission_permission ON tbl_role_permission(permission_id);
+CREATE INDEX IF NOT EXISTS idx_role_permission_composite ON tbl_role_permission(role_id, permission_id);
 
--- View for user roles and permissions
-CREATE VIEW vw_user_roles_permissions AS
-SELECT 
-    u.id as user_id,
-    u.username,
-    u.email,
-    r.id as role_id,
-    r.code as role_code,
-    r.name as role_name,
-    p.id as permission_id,
-    p.code as permission_code,
-    p.name as permission_name,
-    p.category as permission_category
-FROM tbl_user u
-LEFT JOIN tbl_user_role ur ON u.id = ur.user_id
-LEFT JOIN tbl_role r ON ur.role_id = r.id
-LEFT JOIN tbl_role_permission rp ON r.id = rp.role_id
-LEFT JOIN tbl_permission p ON rp.permission_id = p.id
-WHERE u.enabled = true AND u.locked = false;
+CREATE INDEX IF NOT EXISTS idx_token_token ON tbl_token(token);
+CREATE INDEX IF NOT EXISTS idx_token_user ON tbl_token(user_id);
+CREATE INDEX IF NOT EXISTS idx_token_type ON tbl_token(token_type);
+CREATE INDEX IF NOT EXISTS idx_token_expires ON tbl_token(expires_at);
+CREATE INDEX IF NOT EXISTS idx_token_revoked ON tbl_token(revoked);
 
--- Function to check if user has permission
-CREATE OR REPLACE FUNCTION has_permission(user_id BIGINT, permission_code TEXT)
-RETURNS BOOLEAN AS $$
-DECLARE
-    has_perm BOOLEAN;
-BEGIN
-    SELECT EXISTS (
-        SELECT 1 
-        FROM vw_user_roles_permissions 
-        WHERE user_id = $1 AND permission_code = $2
-    ) INTO has_perm;
-    
-    RETURN has_perm;
-END;
-$$ LANGUAGE plpgsql;
+CREATE INDEX IF NOT EXISTS idx_session_token ON tbl_session(session_token);
+CREATE INDEX IF NOT EXISTS idx_session_user ON tbl_session(user_id);
+CREATE INDEX IF NOT EXISTS idx_session_active ON tbl_session(active);
+CREATE INDEX IF NOT EXISTS idx_session_expires ON tbl_session(expires_at);
+
+CREATE INDEX IF NOT EXISTS idx_mfa_user ON tbl_mfa(user_id);
+CREATE INDEX IF NOT EXISTS idx_mfa_enabled ON tbl_mfa(enabled);
+
+CREATE INDEX IF NOT EXISTS idx_audit_user ON tbl_audit_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_action ON tbl_audit_log(action);
+CREATE INDEX IF NOT EXISTS idx_audit_resource ON tbl_audit_log(resource_type, resource_id);
+CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON tbl_audit_log(timestamp);
+CREATE INDEX IF NOT EXISTS idx_audit_success ON tbl_audit_log(success);
+
+CREATE INDEX IF NOT EXISTS idx_api_client_client_id ON tbl_api_client(client_id);
+CREATE INDEX IF NOT EXISTS idx_api_client_active ON tbl_api_client(active);
+CREATE INDEX IF NOT EXISTS idx_api_client_expires ON tbl_api_client(expires_at);
+
+-- Add unique constraints
+ALTER TABLE tbl_user_role ADD CONSTRAINT unique_user_role UNIQUE (user_id, role_id);
+ALTER TABLE tbl_role_permission ADD CONSTRAINT unique_role_permission UNIQUE (role_id, permission_id);
