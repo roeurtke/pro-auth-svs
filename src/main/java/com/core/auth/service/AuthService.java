@@ -35,75 +35,74 @@ public class AuthService {
     @Transactional
     public Mono<AuthResponse> login(AuthRequest request, String ipAddress, String userAgent) {
         return userService.findByUsernameOrEmail(request.getUsername())
+                .switchIfEmpty(Mono.error(new AuthException("User not found")))
                 .flatMap(user -> {
-                    // Check if user is enabled
                     if (!user.isEnabled()) {
                         return Mono.error(new AuthException("Account is disabled"));
                     }
-                    
-                    // Check if account is locked
                     if (user.isLocked()) {
                         return Mono.error(new AuthException("Account is locked"));
                     }
-                    
-                    // Authenticate
+
+                    // Authenticate password reactively
                     return authenticationManager.authenticate(
                             new UsernamePasswordAuthenticationToken(
                                     request.getUsername(),
                                     request.getPassword()
                             )
-                    ).flatMap(auth -> {
-                        // Reset failed login attempts on successful login
-                        user.setFailedLoginAttempts(0);
-                        user.setLastLoginAt(LocalDateTime.now());
-                        
-                        return userService.save(user)
-                                .flatMap(savedUser -> {
-                                    // Check MFA
-                                    if (savedUser.isMfaEnabled()) {
-                                        if (request.getMfaCode() == null || request.getMfaCode().isEmpty()) {
-                                            return Mono.just(AuthResponse.builder()
-                                                    .mfaRequired(true)
-                                                    .user(userService.mapToResponse(savedUser))
-                                                    .build());
-                                        }
-                                        
-                                        // Verify MFA code
-                                        return verifyMfa(savedUser, request.getMfaCode())
-                                                .flatMap(mfaValid -> {
-                                                    if (!mfaValid) {
-                                                        return Mono.error(new AuthException("Invalid MFA code"));
-                                                    }
-                                                    return generateTokens(savedUser, auth, ipAddress, userAgent);
-                                                });
+                    ).flatMap(auth -> handleSuccessfulLogin(user, auth, request, ipAddress, userAgent));
+                })
+                .onErrorResume(e -> handleFailedLogin(request.getUsername(), e, ipAddress, userAgent));
+    }
+
+    private Mono<AuthResponse> handleSuccessfulLogin(User user,
+                                                    Authentication auth,
+                                                    AuthRequest request,
+                                                    String ipAddress,
+                                                    String userAgent) {
+
+        // Reset failed attempts
+        user.setFailedLoginAttempts(0);
+        user.setLastLoginAt(LocalDateTime.now());
+
+        return userService.save(user)
+                .flatMap(savedUser -> {
+                    // Handle MFA
+                    if (savedUser.isMfaEnabled()) {
+                        if (request.getMfaCode() == null || request.getMfaCode().isEmpty()) {
+                            return Mono.just(AuthResponse.builder()
+                                    .mfaRequired(true)
+                                    .user(userService.mapToResponse(savedUser))
+                                    .build());
+                        }
+
+                        return verifyMfa(savedUser, request.getMfaCode())
+                                .flatMap(valid -> {
+                                    if (!valid) {
+                                        return Mono.error(new AuthException("Invalid MFA code"));
                                     }
-                                    
                                     return generateTokens(savedUser, auth, ipAddress, userAgent);
                                 });
-                    });
-                })
-                .onErrorResume(e -> {
-                    // Increment failed login attempts
-                    return userService.findByUsernameOrEmail(request.getUsername())
-                            .flatMap(user -> {
-                                user.setFailedLoginAttempts(user.getFailedLoginAttempts() + 1);
+                    }
 
-                                // Lock account after 5 failed attempts
-                                if (user.getFailedLoginAttempts() >= 5) {
-                                    user.setLocked(true);
-                                }
-
-                                return userService.save(user)
-                                        .then(Mono.<AuthResponse>error(e));
-                            })
-                            .switchIfEmpty(Mono.<AuthResponse>error(e));
+                    return generateTokens(savedUser, auth, ipAddress, userAgent);
                 })
-                .doOnSuccess(response -> 
-                    auditLogService.logLoginSuccess(request.getUsername(), ipAddress, userAgent)
-                )
-                .doOnError(e -> 
-                    auditLogService.logLoginFailure(request.getUsername(), ipAddress, userAgent, e.getMessage())
-                );
+                .doOnSuccess(resp -> auditLogService.logLoginSuccess(user.getUsername(), ipAddress, userAgent))
+                .doOnError(err -> auditLogService.logLoginFailure(user.getUsername(), ipAddress, userAgent, err.getMessage()));
+    }
+    
+    private Mono<AuthResponse> handleFailedLogin(String username, Throwable e, String ipAddress, String userAgent) {
+        return userService.findByUsernameOrEmail(username)
+                .flatMap(user -> {
+                    user.setFailedLoginAttempts(user.getFailedLoginAttempts() + 1);
+                    if (user.getFailedLoginAttempts() >= 5) {
+                        user.setLocked(true);
+                    }
+                    return userService.save(user);
+                })
+                .onErrorResume(err -> Mono.empty()) // ignore errors while updating user
+                .then(Mono.<AuthResponse>error(e))  // explicitly tell compiler the type
+                .doOnError(err -> auditLogService.logLoginFailure(username, ipAddress, userAgent, err.getMessage()));
     }
     
     @Transactional
@@ -191,27 +190,28 @@ public class AuthService {
     
     private Mono<AuthResponse> generateTokens(User user, Authentication auth, String ipAddress, String userAgent) {
         return Mono.zip(
-                generateAccessToken(user, auth.getAuthorities()),
-                generateRefreshToken(user)
-        ).flatMap(tuple -> {
-            String accessToken = tuple.getT1();
-            String refreshToken = tuple.getT2();
+                        generateAccessToken(user, auth.getAuthorities()),
+                        generateRefreshToken(user)
+                )
+                .flatMap(tuple -> {
+                    String accessToken = tuple.getT1();
+                    String refreshToken = tuple.getT2();
 
-            return tokenService.saveRefreshToken(user.getId().toString(), refreshToken)
-                    .then(sessionService.createSession(user.getId().toString(), ipAddress, userAgent))
-                    .map(session -> AuthResponse.builder()
-                            .accessToken(accessToken)
-                            .refreshToken(refreshToken)
-                            .expiresIn(jwtTokenProvider.getExpirationDateFromToken(accessToken)
-                                    .atZone(java.time.ZoneId.systemDefault())
-                                    .toInstant()
-                                    .toEpochMilli())
-                            .tokenType("Bearer")
-                            .user(userService.mapToResponse(user))
-                            .mfaRequired(false)
-                            .build())
-                    .onErrorMap(e -> new AuthException("Failed to create session: " + e.getMessage()));
-        });
+                    // Save refresh token and create session reactively
+                    return tokenService.saveRefreshToken(user.getId().toString(), refreshToken)
+                            .then(sessionService.createSession(user.getId().toString(), ipAddress, userAgent))
+                            .map(session -> AuthResponse.builder()
+                                    .accessToken(accessToken)
+                                    .refreshToken(refreshToken)
+                                    .expiresIn(jwtTokenProvider.getExpirationDateFromToken(accessToken)
+                                            .atZone(java.time.ZoneId.systemDefault())
+                                            .toInstant()
+                                            .toEpochMilli())
+                                    .tokenType("Bearer")
+                                    .user(userService.mapToResponse(user))
+                                    .mfaRequired(false)
+                                    .build());
+                });
     }
     
     private Mono<String> generateAccessToken(User user, java.util.Collection<? extends org.springframework.security.core.GrantedAuthority> authorities) {
