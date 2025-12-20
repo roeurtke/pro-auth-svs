@@ -196,10 +196,10 @@ public class AuthService {
         ).flatMap(tuple -> {
             String accessToken = tuple.getT1();
             String refreshToken = tuple.getT2();
-            
+
             return tokenService.saveRefreshToken(user.getId().toString(), refreshToken)
                     .then(sessionService.createSession(user.getId().toString(), ipAddress, userAgent))
-                    .thenReturn(AuthResponse.builder()
+                    .map(session -> AuthResponse.builder()
                             .accessToken(accessToken)
                             .refreshToken(refreshToken)
                             .expiresIn(jwtTokenProvider.getExpirationDateFromToken(accessToken)
@@ -209,7 +209,8 @@ public class AuthService {
                             .tokenType("Bearer")
                             .user(userService.mapToResponse(user))
                             .mfaRequired(false)
-                            .build());
+                            .build())
+                    .onErrorMap(e -> new AuthException("Failed to create session: " + e.getMessage()));
         });
     }
     

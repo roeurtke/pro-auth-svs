@@ -102,7 +102,7 @@ CREATE TABLE tbl_session (
 
 CREATE TABLE tbl_mfa (
     id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL UNIQUE,
     secret VARCHAR(255) NOT NULL,
     backup_codes TEXT,
     method VARCHAR(20) DEFAULT 'TOTP',
