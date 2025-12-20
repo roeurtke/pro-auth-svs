@@ -55,7 +55,9 @@ CREATE TABLE tbl_user_role (
     user_id BIGINT NOT NULL,
     role_id BIGINT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(user_id, role_id)
+    UNIQUE(user_id, role_id),
+    CONSTRAINT fk_user_role_user FOREIGN KEY (user_id) REFERENCES tbl_user(id) ON DELETE CASCADE,
+    CONSTRAINT fk_user_role_role FOREIGN KEY (role_id) REFERENCES tbl_role(id) ON DELETE CASCADE
 );
 
 CREATE TABLE tbl_role_permission (
@@ -63,24 +65,27 @@ CREATE TABLE tbl_role_permission (
     role_id BIGINT NOT NULL,
     permission_id BIGINT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(role_id, permission_id)
+    UNIQUE(role_id, permission_id),
+    CONSTRAINT fk_role_permission_role FOREIGN KEY (role_id) REFERENCES tbl_role(id) ON DELETE CASCADE,
+    CONSTRAINT fk_role_permission_permission FOREIGN KEY (permission_id) REFERENCES tbl_permission(id) ON DELETE CASCADE
 );
 
 CREATE TABLE tbl_token (
     id BIGSERIAL PRIMARY KEY,
-    user_id VARCHAR(255) NOT NULL,
+    user_id BIGINT NOT NULL,
     token VARCHAR(512) UNIQUE NOT NULL,
     token_type VARCHAR(20) NOT NULL,
     revoked BOOLEAN DEFAULT false,
     expired BOOLEAN DEFAULT false,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP NOT NULL,
-    revoked_at TIMESTAMP
+    revoked_at TIMESTAMP,
+    CONSTRAINT fk_token_user FOREIGN KEY (user_id) REFERENCES tbl_user(id) ON DELETE CASCADE
 );
 
 CREATE TABLE tbl_session (
     id BIGSERIAL PRIMARY KEY,
-    user_id VARCHAR(255) NOT NULL,
+    user_id BIGINT NOT NULL,
     session_token VARCHAR(512) UNIQUE NOT NULL,
     ip_address VARCHAR(45),
     user_agent TEXT,
@@ -91,23 +96,25 @@ CREATE TABLE tbl_session (
     logout_at TIMESTAMP,
     expires_at TIMESTAMP NOT NULL,
     active BOOLEAN DEFAULT true,
-    logout_reason VARCHAR(100)
+    logout_reason VARCHAR(100),
+    CONSTRAINT fk_session_user FOREIGN KEY (user_id) REFERENCES tbl_user(id) ON DELETE CASCADE
 );
 
 CREATE TABLE tbl_mfa (
     id BIGSERIAL PRIMARY KEY,
-    user_id VARCHAR(255) NOT NULL,
+    user_id BIGINT NOT NULL,
     secret VARCHAR(255) NOT NULL,
     backup_codes TEXT,
     method VARCHAR(20) DEFAULT 'TOTP',
     enabled BOOLEAN DEFAULT false,
     enabled_at TIMESTAMP,
-    last_used_at TIMESTAMP
+    last_used_at TIMESTAMP,
+    CONSTRAINT fk_mfa_user FOREIGN KEY (user_id) REFERENCES tbl_user(id) ON DELETE CASCADE
 );
 
 CREATE TABLE tbl_audit_log (
     id BIGSERIAL PRIMARY KEY,
-    user_id VARCHAR(255),
+    user_id BIGINT,
     action VARCHAR(100) NOT NULL,
     resource_type VARCHAR(50),
     resource_id VARCHAR(255),
@@ -117,7 +124,8 @@ CREATE TABLE tbl_audit_log (
     user_agent TEXT,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     success BOOLEAN DEFAULT true,
-    error_message TEXT
+    error_message TEXT,
+    CONSTRAINT fk_audit_user FOREIGN KEY (user_id) REFERENCES tbl_user(id) ON DELETE SET NULL
 );
 
 CREATE TABLE tbl_api_client (
@@ -135,7 +143,7 @@ CREATE TABLE tbl_api_client (
     confidential BOOLEAN DEFAULT true
 );
 
--- Create indexes for performance
+-- Indexes
 CREATE INDEX idx_user_username ON tbl_user(username);
 CREATE INDEX idx_user_email ON tbl_user(email);
 CREATE INDEX idx_user_enabled ON tbl_user(enabled);
