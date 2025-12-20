@@ -108,3 +108,17 @@ FROM tbl_user u
 CROSS JOIN tbl_role r
 WHERE u.username = 'user1' AND r.code = 'USER'
 ON CONFLICT (user_id, role_id) DO NOTHING;
+
+-- Admin user MFA
+INSERT INTO tbl_mfa (user_id, secret, enabled, created_at, updated_at)
+SELECT u.id, 'JBSWY3DPEHPK3PXP', true, NOW(), NOW()
+FROM tbl_user u
+WHERE u.username = 'admin'
+ON CONFLICT (user_id) DO NOTHING;
+
+-- Regular test user MFA
+INSERT INTO tbl_mfa (user_id, secret, enabled, created_at, updated_at)
+SELECT u.id, 'KRSXG5DSMFZWK3LP', true, NOW(), NOW()
+FROM tbl_user u
+WHERE u.username = 'user1'
+ON CONFLICT (user_id) DO NOTHING;
