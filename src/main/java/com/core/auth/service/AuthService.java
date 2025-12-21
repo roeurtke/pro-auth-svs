@@ -8,6 +8,7 @@ import com.core.auth.model.User;
 import com.core.auth.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.ReactiveAuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -30,7 +31,7 @@ public class AuthService {
     private final AuditLogService auditLogService;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
-    private final ReactiveAuthenticationManager authenticationManager;
+    private final ReactiveAuthenticationManager loginAuthenticationManager;
     
     @Transactional
     public Mono<AuthResponse> login(AuthRequest request, String ipAddress, String userAgent) {
@@ -45,12 +46,14 @@ public class AuthService {
                     }
 
                     // Authenticate password reactively
-                    return authenticationManager.authenticate(
-                            new UsernamePasswordAuthenticationToken(
-                                    request.getUsername(),
-                                    request.getPassword()
-                            )
-                    ).flatMap(auth -> handleSuccessfulLogin(user, auth, request, ipAddress, userAgent));
+                    return loginAuthenticationManager.authenticate(
+                        new UsernamePasswordAuthenticationToken(
+                            request.getUsername(),
+                            request.getPassword()
+                        )
+                    )
+                    .flatMap(auth -> handleSuccessfulLogin(user, auth, request, ipAddress, userAgent))
+                    .onErrorResume(e -> handleAuthenticationError(e, request, ipAddress, userAgent));
                 })
                 .onErrorResume(e -> handleFailedLogin(request.getUsername(), e, ipAddress, userAgent));
     }
@@ -220,5 +223,24 @@ public class AuthService {
     
     private Mono<String> generateRefreshToken(User user) {
         return Mono.just(jwtTokenProvider.generateRefreshToken(user));
+    }
+
+    private Mono<AuthResponse> handleAuthenticationError(
+            Throwable e,
+            AuthRequest request,
+            String ipAddress,
+            String userAgent) {
+
+        if (e instanceof BadCredentialsException) {
+            return handleFailedLogin(
+                    request.getUsername(),
+                    new AuthException("Invalid username or password"),
+                    ipAddress,
+                    userAgent
+            );
+        }
+
+        log.error("Unexpected authentication error", e);
+        return Mono.error(new AuthException("Authentication failed"));
     }
 }
