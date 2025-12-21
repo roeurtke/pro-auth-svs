@@ -8,7 +8,6 @@ import com.core.auth.model.User;
 import com.core.auth.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.ReactiveAuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -34,6 +33,14 @@ public class AuthService {
     private final ReactiveAuthenticationManager loginAuthenticationManager;
     
     @Transactional
+    public Mono<User> incrementFailedLogin(User user) {
+        user.setFailedLoginAttempts(user.getFailedLoginAttempts() + 1);
+        if (user.getFailedLoginAttempts() >= 5) {
+            user.setLocked(true);
+        }
+        return userService.save(user);
+    }
+
     public Mono<AuthResponse> login(AuthRequest request, String ipAddress, String userAgent) {
         return userService.findByUsernameOrEmail(request.getUsername())
                 .switchIfEmpty(Mono.error(new AuthException("User not found")))
@@ -45,32 +52,25 @@ public class AuthService {
                         return Mono.error(new AuthException("Account is locked"));
                     }
 
-                    // Authenticate password reactively
-                    return loginAuthenticationManager.authenticate(
-                        new UsernamePasswordAuthenticationToken(
-                            request.getUsername(),
-                            request.getPassword()
-                        )
-                    )
-                    .flatMap(auth -> handleSuccessfulLogin(user, auth, request, ipAddress, userAgent))
-                    .onErrorResume(e -> handleAuthenticationError(e, request, ipAddress, userAgent));
-                })
-                .onErrorResume(e -> handleFailedLogin(request.getUsername(), e, ipAddress, userAgent));
+                    // Check password via ReactiveAuthenticationManager
+                    UsernamePasswordAuthenticationToken authToken =
+                            new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword());
+
+                    return loginAuthenticationManager.authenticate(authToken)
+                            .flatMap(auth -> processSuccessfulLogin(user, request, auth, ipAddress, userAgent))
+                            .onErrorResume(e -> processFailedLogin(user, ipAddress, userAgent));
+                });
     }
 
-    private Mono<AuthResponse> handleSuccessfulLogin(User user,
-                                                    Authentication auth,
-                                                    AuthRequest request,
-                                                    String ipAddress,
-                                                    String userAgent) {
-
-        // Reset failed attempts
+    private Mono<AuthResponse> processSuccessfulLogin(User user, AuthRequest request, Authentication auth,
+                                                    String ipAddress, String userAgent) {
+        // Reset failed attempts and update last login
         user.setFailedLoginAttempts(0);
         user.setLastLoginAt(LocalDateTime.now());
 
         return userService.save(user)
                 .flatMap(savedUser -> {
-                    // Handle MFA
+                    // MFA check
                     if (savedUser.isMfaEnabled()) {
                         if (request.getMfaCode() == null || request.getMfaCode().isEmpty()) {
                             return Mono.just(AuthResponse.builder()
@@ -93,19 +93,12 @@ public class AuthService {
                 .doOnSuccess(resp -> auditLogService.logLoginSuccess(user.getUsername(), ipAddress, userAgent))
                 .doOnError(err -> auditLogService.logLoginFailure(user.getUsername(), ipAddress, userAgent, err.getMessage()));
     }
-    
-    private Mono<AuthResponse> handleFailedLogin(String username, Throwable e, String ipAddress, String userAgent) {
-        return userService.findByUsernameOrEmail(username)
-                .flatMap(user -> {
-                    user.setFailedLoginAttempts(user.getFailedLoginAttempts() + 1);
-                    if (user.getFailedLoginAttempts() >= 5) {
-                        user.setLocked(true);
-                    }
-                    return userService.save(user);
-                })
-                .onErrorResume(err -> Mono.empty()) // ignore errors while updating user
-                .then(Mono.<AuthResponse>error(e))  // explicitly tell compiler the type
-                .doOnError(err -> auditLogService.logLoginFailure(username, ipAddress, userAgent, err.getMessage()));
+
+    private Mono<AuthResponse> processFailedLogin(User user, String ipAddress, String userAgent) {
+        return incrementFailedLogin(user)
+                .doOnSuccess(savedUser -> auditLogService.logLoginFailure(
+                        user.getUsername(), ipAddress, userAgent, "Invalid username or password"))
+                .then(Mono.error(new AuthException("Invalid username or password")));
     }
     
     @Transactional
@@ -223,24 +216,5 @@ public class AuthService {
     
     private Mono<String> generateRefreshToken(User user) {
         return Mono.just(jwtTokenProvider.generateRefreshToken(user));
-    }
-
-    private Mono<AuthResponse> handleAuthenticationError(
-            Throwable e,
-            AuthRequest request,
-            String ipAddress,
-            String userAgent) {
-
-        if (e instanceof BadCredentialsException) {
-            return handleFailedLogin(
-                    request.getUsername(),
-                    new AuthException("Invalid username or password"),
-                    ipAddress,
-                    userAgent
-            );
-        }
-
-        log.error("Unexpected authentication error", e);
-        return Mono.error(new AuthException("Authentication failed"));
     }
 }
