@@ -32,12 +32,12 @@ ON CONFLICT (code) DO NOTHING;
 
 -- Create admin user
 INSERT INTO tbl_user (username, email, password, first_name, last_name, phone, enabled, locked, mfa_enabled, created_at, updated_at, password_changed_at, failed_login_attempts) VALUES
-('admin', 'admin@example.com', '{bcrypt}$2a$10$uC1LZ6YkM0cO4yF2p0J7Qe7R7vZ6n8ZyN3L2Qz0JzQ7R2XzY1S', 'System', 'Administrator', '+1234567890', true, false, false, NOW(), NOW(), NOW(), 0)
+('admin', 'admin@example.com', '{bcrypt}$2a$10$TATkExOLr2PaYZJRP2C0U.93jwh8Xmd.DSo4/ekHhaMFWWN9g78yy', 'System', 'Administrator', '+1234567890', true, false, false, NOW(), NOW(), NOW(), 0)
 ON CONFLICT (username) DO NOTHING;
 
 -- Create regular test user
 INSERT INTO tbl_user (username, email, password, first_name, last_name, phone, enabled, locked, mfa_enabled, created_at, updated_at, password_changed_at, failed_login_attempts) VALUES
-('user1', 'user1@example.com', '{bcrypt}$2a$10$uC1LZ6YkM0cO4yF2p0J7Qe7R7vZ6n8ZyN3L2Qz0JzQ7R2XzY1S', 'John', 'Doe', '+1234567891', true, false, false, NOW(), NOW(), NOW(), 0)
+('user1', 'user1@example.com', '{bcrypt}$2a$10$TATkExOLr2PaYZJRP2C0U.93jwh8Xmd.DSo4/ekHhaMFWWN9g78yy', 'John', 'Doe', '+1234567891', true, false, false, NOW(), NOW(), NOW(), 0)
 ON CONFLICT (username) DO NOTHING;
 
 -- Assign permissions to roles
