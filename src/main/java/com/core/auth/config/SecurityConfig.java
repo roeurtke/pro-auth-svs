@@ -67,7 +67,8 @@ public class SecurityConfig {
                         .anyExchange().authenticated()
                 )
                 .securityContextRepository(securityContextRepository)
-                .authenticationManager(jwtAuthManager)
+                // REMOVE THIS LINE - Don't set global authentication manager
+                // .authenticationManager(jwtAuthManager)
                 .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
                 .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
                 .build();

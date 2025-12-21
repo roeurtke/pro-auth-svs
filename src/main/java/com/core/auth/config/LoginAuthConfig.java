@@ -15,7 +15,7 @@ public class LoginAuthConfig {
     private final CustomUserDetailsService userDetailsService;
     private final PasswordEncoder passwordEncoder;
 
-    @Bean
+    @Bean("loginAuthenticationManager")  // Explicit bean name
     public ReactiveAuthenticationManager loginAuthenticationManager() {
         UserDetailsRepositoryReactiveAuthenticationManager manager =
                 new UserDetailsRepositoryReactiveAuthenticationManager(userDetailsService);

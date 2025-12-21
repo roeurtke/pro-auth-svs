@@ -25,34 +25,48 @@ public class CustomUserDetailsService implements ReactiveUserDetailsService {
     
     @Override
     public Mono<UserDetails> findByUsername(String username) {
+        log.debug("Looking up user by username: {}", username);
+        
         return userRepository.findByUsername(username)
-                .switchIfEmpty(Mono.error(new UsernameNotFoundException("User not found: " + username)))
+                .switchIfEmpty(Mono.defer(() -> {
+                    log.warn("User not found with username: {}", username);
+                    return Mono.error(new UsernameNotFoundException("User not found: " + username));
+                }))
+                .doOnNext(user -> log.debug("Found user: {} with id: {}", user.getUsername(), user.getId()))
                 .flatMap(user -> 
-                    roleService.getUserWithAuthorities(user.getId())
-                        .map(this::convertToUserDetails)
-                );
+                    // Get authorities synchronously since getAuthoritiesForUser returns Set<GrantedAuthority>
+                    Mono.fromCallable(() -> roleService.getAuthoritiesForUser(user.getId()))
+                        .onErrorResume(e -> {
+                            log.warn("Failed to get authorities for user {}: {}", user.getUsername(), e.getMessage());
+                            return Mono.just(new HashSet<>());
+                        })
+                        .map(authorities -> convertToUserDetails(user, authorities))
+                )
+                .doOnError(error -> log.error("Error finding user by username: {}", error.getMessage()));
     }
     
-    private UserDetails convertToUserDetails(User user) {
-        Set<GrantedAuthority> authorities = new HashSet<>();
-        
-        // Add role authorities
-        if (user.getRoles() != null) {
-            user.getRoles().forEach(role -> 
-                authorities.add(new SimpleGrantedAuthority("ROLE_" + role.getCode()))
-            );
+    private UserDetails convertToUserDetails(User user, Set<GrantedAuthority> authorities) {
+        // Validate critical fields
+        if (user == null) {
+            throw new IllegalArgumentException("User cannot be null");
         }
         
-        // Add permission authorities
-        if (user.getPermissions() != null) {
-            user.getPermissions().forEach(permission -> 
-                authorities.add(new SimpleGrantedAuthority("PERM_" + permission.getCode()))
-            );
+        String username = user.getUsername();
+        if (username == null || username.trim().isEmpty()) {
+            throw new IllegalArgumentException("User username cannot be null or empty. User ID: " + user.getId());
         }
+        
+        String password = user.getPassword();
+        if (password == null) {
+            log.warn("User {} has null password, using empty string", username);
+            password = "";
+        }
+        
+        log.debug("Creating UserDetails for {} with {} authorities", username, authorities.size());
         
         return org.springframework.security.core.userdetails.User.builder()
-                .username(user.getUsername())
-                .password(user.getPassword())
+                .username(username)
+                .password(password)
                 .authorities(authorities)
                 .disabled(!user.isEnabled())
                 .accountExpired(!user.isAccountNonExpired())

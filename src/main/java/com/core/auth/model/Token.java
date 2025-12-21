@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.LocalDateTime;
@@ -19,14 +20,24 @@ public class Token {
     @Id
     private Long id;
     
-    private String userId;
+    @Column("user_id")
+    private Long userId;  // Change from String to Long
+    
     private String token;
+    
+    @Column("token_type")
     private String tokenType; // ACCESS, REFRESH, RESET, VERIFICATION
+    
     private boolean revoked;
     private boolean expired;
     
+    @Column("created_at")
     private LocalDateTime createdAt;
+    
+    @Column("expires_at")
     private LocalDateTime expiresAt;
+    
+    @Column("revoked_at")
     private LocalDateTime revokedAt;
     
     public boolean isValid() {
