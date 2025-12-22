@@ -14,7 +14,15 @@ import java.time.LocalDateTime;
 public interface TokenRepository extends R2dbcRepository<Token, Long> {
     
     Mono<Token> findByToken(String token);
+    
+    // Add this method for Long userId
+    @Query("SELECT * FROM tbl_token WHERE user_id = :userId")
+    Flux<Token> findAllByUserId(Long userId);
+    
+    // Keep this for String userId if needed elsewhere
+    @Query("SELECT * FROM tbl_token WHERE user_id = :userId")
     Flux<Token> findByUserId(String userId);
+    
     Flux<Token> findByUserIdAndTokenType(String userId, String tokenType);
     
     @Modifying
@@ -24,4 +32,7 @@ public interface TokenRepository extends R2dbcRepository<Token, Long> {
     @Modifying
     @Query("DELETE FROM tbl_token WHERE expires_at < :date")
     Mono<Void> deleteExpiredTokens(LocalDateTime date);
+    
+    // Add this method that TokenService.validateRefreshToken() uses
+    Mono<Boolean> existsByTokenAndRevokedFalseAndExpiredFalse(String token);
 }

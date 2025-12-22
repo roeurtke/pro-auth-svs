@@ -32,4 +32,8 @@ public interface SessionRepository extends R2dbcRepository<Session, Long> {
     
     @Query("SELECT AVG(EXTRACT(EPOCH FROM (last_activity_at - login_at))/60) FROM tbl_session WHERE active = false")
     Mono<Double> findAverageSessionDuration();
+    
+    // Add this method that SessionService needs
+    @Query("SELECT COUNT(*) FROM tbl_session")
+    Mono<Long> count();
 }

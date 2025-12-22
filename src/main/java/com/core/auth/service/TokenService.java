@@ -52,16 +52,35 @@ public class TokenService {
         
         LocalDateTime expiresAt = jwtTokenProvider.getExpirationDateFromToken(refreshToken);
         Token token = Token.builder()
-                .userId(userIdLong)  // Use Long, not String
+                .userId(userIdLong)
                 .token(refreshToken)
                 .tokenType("REFRESH")
                 .revoked(false)
                 .expired(false)
                 .createdAt(LocalDateTime.now())
                 .expiresAt(expiresAt)
-                .revokedAt(null)  // Add this line
+                .revokedAt(null)
                 .build();
 
         return tokenRepository.save(token).then();
+    }
+    
+    public Mono<Void> revokeAllUserTokens(String userId) {
+        // Convert userId from String to Long for the query
+        Long userIdLong;
+        try {
+            userIdLong = Long.parseLong(userId);
+        } catch (NumberFormatException e) {
+            return Mono.error(new IllegalArgumentException("Invalid user ID: " + userId));
+        }
+        
+        LocalDateTime now = LocalDateTime.now();
+        return tokenRepository.findAllByUserId(userIdLong)
+                .flatMap(token -> {
+                    token.setRevoked(true);
+                    token.setRevokedAt(now);
+                    return tokenRepository.save(token);
+                })
+                .then();
     }
 }

@@ -228,39 +228,54 @@ public class AuthService {
     }
     
     private Mono<AuthResponse> generateTokens(User user, Authentication auth, String ipAddress, String userAgent) {
+        log.info("=== Testing Token/Session Saving ===");
+        
         return Mono.zip(
                         generateAccessToken(user, auth.getAuthorities()),
                         generateRefreshToken(user)
                 )
-                .doOnNext(tuple -> {
-                    log.info("✅ Login successful for user: {}", user.getUsername());
-                    log.info("   Access token generated: {} chars", tuple.getT1().length());
-                    log.info("   Refresh token generated: {} chars", tuple.getT2().length());
-                })
                 .flatMap(tuple -> {
                     String accessToken = tuple.getT1();
                     String refreshToken = tuple.getT2();
-
-                    // Create response WITHOUT saving tokens or sessions
-                    // This allows us to test if login works
-                    AuthResponse response = AuthResponse.builder()
-                            .accessToken(accessToken)
-                            .refreshToken(refreshToken)
-                            .expiresIn(jwtTokenProvider.getExpirationDateFromToken(accessToken)
-                                    .atZone(java.time.ZoneId.systemDefault())
-                                    .toInstant()
-                                    .toEpochMilli())
-                            .tokenType("Bearer")
-                            // .user(userService.mapToResponse(user))
-                            .mfaRequired(false)
-                            .build();
                     
-                    log.info("✅ Created AuthResponse for user: {}", user.getUsername());
-                    return Mono.just(response);
+                    log.info("1. Testing Token Save...");
+                    return tokenService.saveRefreshToken(user.getId().toString(), refreshToken)
+                            .doOnSuccess(v -> log.info("   ✅ Token saved successfully"))
+                            .doOnError(e -> {
+                                log.error("   ❌ Token save failed: {}", e.getMessage());
+                                log.error("   Stack trace:", e);
+                            })
+                            .onErrorResume(e -> {
+                                log.warn("   ⚠️ Continuing without token save");
+                                return Mono.empty(); // Continue even if token save fails
+                            })
+                            .then(Mono.defer(() -> {
+                                log.info("2. Testing Session Creation...");
+                                return sessionService.createSession(user.getId().toString(), ipAddress, userAgent)
+                                        .doOnSuccess(s -> log.info("   ✅ Session created: ID={}", s.getId()))
+                                        .doOnError(e -> {
+                                            log.error("   ❌ Session creation failed: {}", e.getMessage());
+                                            log.error("   Stack trace:", e);
+                                        })
+                                        .onErrorResume(e -> {
+                                            log.warn("   ⚠️ Continuing without session");
+                                            return Mono.empty(); // Continue even if session fails
+                                        })
+                                        .thenReturn(AuthResponse.builder()
+                                                .accessToken(accessToken)
+                                                .refreshToken(refreshToken)
+                                                .expiresIn(jwtTokenProvider.getExpirationDateFromToken(accessToken)
+                                                        .atZone(java.time.ZoneId.systemDefault())
+                                                        .toInstant()
+                                                        .toEpochMilli())
+                                                .tokenType("Bearer")
+                                                .user(userService.mapToResponse(user))
+                                                .mfaRequired(false)
+                                                .build());
+                            }));
                 })
-                .doOnError(e -> {
-                    log.error("❌ Error generating tokens: {}", e.getMessage());
-                });
+                .doOnNext(response -> log.info("=== AuthResponse created successfully ==="))
+                .doOnError(e -> log.error("=== Error in generateTokens: {} ===", e.getMessage()));
     }
     
     private Mono<String> generateAccessToken(User user, java.util.Collection<? extends org.springframework.security.core.GrantedAuthority> authorities) {
