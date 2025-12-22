@@ -24,7 +24,7 @@ import java.util.Arrays;
     AppProperties.Argon2.class,
     AppProperties.Mfa.class,
     AppProperties.Database.class,
-    AppProperties.R2dbcInitialization.class
+    AppProperties.R2dbc.class
 })
 @EnableWebFluxSecurity
 @EnableReactiveMethodSecurity
