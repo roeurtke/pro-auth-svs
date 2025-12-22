@@ -1,6 +1,6 @@
 package com.core.auth.config;
 
-import com.core.auth.security.JwtAuthManager;
+// import com.core.auth.security.JwtAuthManager;
 import com.core.auth.repository.JwtSecurityContextRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -31,7 +31,7 @@ import java.util.Arrays;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtAuthManager jwtAuthManager;
+//     private final JwtAuthManager jwtAuthManager;
     private final JwtSecurityContextRepository securityContextRepository;
     private final ApiConfig apiConfig;
     private final CorsConfig corsConfig;

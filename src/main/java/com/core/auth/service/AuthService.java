@@ -20,7 +20,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
-import java.util.Set;
+// import java.util.Set;
 
 @Slf4j
 @Service
@@ -232,26 +232,34 @@ public class AuthService {
                         generateAccessToken(user, auth.getAuthorities()),
                         generateRefreshToken(user)
                 )
+                .doOnNext(tuple -> {
+                    log.info("✅ Login successful for user: {}", user.getUsername());
+                    log.info("   Access token generated: {} chars", tuple.getT1().length());
+                    log.info("   Refresh token generated: {} chars", tuple.getT2().length());
+                })
                 .flatMap(tuple -> {
                     String accessToken = tuple.getT1();
                     String refreshToken = tuple.getT2();
 
-                    log.info("Login successful! Generated tokens for user: {}", user.getUsername());
-                    log.info("Temporarily skipping token saving to database...");
+                    // Create response WITHOUT saving tokens or sessions
+                    // This allows us to test if login works
+                    AuthResponse response = AuthResponse.builder()
+                            .accessToken(accessToken)
+                            .refreshToken(refreshToken)
+                            .expiresIn(jwtTokenProvider.getExpirationDateFromToken(accessToken)
+                                    .atZone(java.time.ZoneId.systemDefault())
+                                    .toInstant()
+                                    .toEpochMilli())
+                            .tokenType("Bearer")
+                            // .user(userService.mapToResponse(user))
+                            .mfaRequired(false)
+                            .build();
                     
-                    // Skip token saving for now
-                    return sessionService.createSession(user.getId().toString(), ipAddress, userAgent)
-                            .map(session -> AuthResponse.builder()
-                                    .accessToken(accessToken)
-                                    .refreshToken(refreshToken)
-                                    .expiresIn(jwtTokenProvider.getExpirationDateFromToken(accessToken)
-                                            .atZone(java.time.ZoneId.systemDefault())
-                                            .toInstant()
-                                            .toEpochMilli())
-                                    .tokenType("Bearer")
-                                    .user(userService.mapToResponse(user))
-                                    .mfaRequired(false)
-                                    .build());
+                    log.info("✅ Created AuthResponse for user: {}", user.getUsername());
+                    return Mono.just(response);
+                })
+                .doOnError(e -> {
+                    log.error("❌ Error generating tokens: {}", e.getMessage());
                 });
     }
     
