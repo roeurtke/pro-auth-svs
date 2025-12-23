@@ -43,13 +43,21 @@ public class SessionService {
     public Mono<Session> createSession(String userId, String ipAddress, String userAgent) {
         log.info("Creating session for user: {}, IP: {}", userId, ipAddress);
 
-        return userRepository.findById(Long.parseLong(userId))
+        // Convert userId from String to Long
+        Long userIdLong;
+        try {
+            userIdLong = Long.parseLong(userId);
+        } catch (NumberFormatException e) {
+            return Mono.error(new IllegalArgumentException("Invalid user ID: " + userId));
+        }
+
+        return userRepository.findById(userIdLong)
                 .switchIfEmpty(Mono.error(new RuntimeException("User not found: " + userId)))
                 .flatMap(user -> {
                     String sessionToken = generateSessionToken();
 
                     Session session = Session.builder()
-                            .userId(userId)
+                            .userId(userIdLong)
                             .sessionToken(sessionToken)
                             .ipAddress(ipAddress)
                             .userAgent(userAgent)
@@ -57,8 +65,10 @@ public class SessionService {
                             .location("Unknown")
                             .loginAt(LocalDateTime.now())
                             .lastActivityAt(LocalDateTime.now())
+                            .logoutAt(null)
                             .expiresAt(LocalDateTime.now().plusMinutes(sessionTimeoutMinutes))
                             .active(true)
+                            .logoutReason(null)
                             .build();
 
                     return sessionRepository.save(session)
@@ -67,7 +77,7 @@ public class SessionService {
                             );
                 })
                 .doOnSuccess(session ->
-                        auditLogService.logSessionCreation(userId, session.getId().toString(), ipAddress)
+                        auditLogService.logSessionCreation(userId, session.getId().toString(), ipAddress).subscribe()
                 );
     }
 
@@ -106,7 +116,12 @@ public class SessionService {
                         String oldIp = session.getIpAddress();
                         session.setIpAddress(ipAddress);
 
-                        auditLogService.logSessionIpChange(session.getUserId(), session.getId().toString(), oldIp, ipAddress);
+                        auditLogService.logSessionIpChange(
+                            String.valueOf(session.getUserId()), 
+                            session.getId().toString(), 
+                            oldIp, 
+                            ipAddress
+                        ).subscribe();
                     }
 
                     return sessionRepository.save(session);
@@ -122,7 +137,15 @@ public class SessionService {
     public Mono<Void> logout(String userId, String ipAddress) {
         log.info("Logging out user: {} from IP: {}", userId, ipAddress);
 
-        return sessionRepository.findByUserIdAndActiveTrue(userId)
+        // Convert String userId to Long for repository query
+        Long userIdLong;
+        try {
+            userIdLong = Long.parseLong(userId);
+        } catch (NumberFormatException e) {
+            return Mono.error(new IllegalArgumentException("Invalid user ID: " + userId));
+        }
+        
+        return sessionRepository.findByUserIdAndActiveTrue(userIdLong)
                 .flatMap(session -> {
                     session.setActive(false);
                     session.setLogoutAt(LocalDateTime.now());
@@ -130,7 +153,7 @@ public class SessionService {
                     return sessionRepository.save(session);
                 })
                 .then()
-                .doOnSuccess(v -> auditLogService.logLogout(userId, ipAddress));
+                .doOnSuccess(v -> auditLogService.logLogout(userId, ipAddress).subscribe());
     }
 
     /**
@@ -148,7 +171,11 @@ public class SessionService {
                     session.setLogoutReason(reason);
 
                     return sessionRepository.save(session)
-                            .doOnSuccess(s -> auditLogService.logSessionLogout(session.getUserId(), session.getId().toString(), reason))
+                            .doOnSuccess(s -> auditLogService.logSessionLogout(
+                                String.valueOf(session.getUserId()), 
+                                session.getId().toString(), 
+                                reason
+                            ).subscribe())
                             .then();
                 });
     }
@@ -158,7 +185,15 @@ public class SessionService {
      */
     @Transactional(readOnly = true)
     public Flux<Session> getUserSessions(String userId) {
-        return sessionRepository.findByUserId(userId)
+        // Convert String userId to Long for repository query
+        Long userIdLong;
+        try {
+            userIdLong = Long.parseLong(userId);
+        } catch (NumberFormatException e) {
+            return Flux.error(new IllegalArgumentException("Invalid user ID: " + userId));
+        }
+        
+        return sessionRepository.findByUserId(userIdLong)
                 .sort((s1, s2) -> s2.getLastActivityAt().compareTo(s1.getLastActivityAt()));
     }
 
@@ -167,7 +202,15 @@ public class SessionService {
      */
     @Transactional(readOnly = true)
     public Flux<Session> getActiveUserSessions(String userId) {
-        return sessionRepository.findByUserIdAndActiveTrue(userId);
+        // Convert String userId to Long for repository query
+        Long userIdLong;
+        try {
+            userIdLong = Long.parseLong(userId);
+        } catch (NumberFormatException e) {
+            return Flux.error(new IllegalArgumentException("Invalid user ID: " + userId));
+        }
+        
+        return sessionRepository.findByUserIdAndActiveTrue(userIdLong);
     }
 
     /**
@@ -177,7 +220,15 @@ public class SessionService {
     public Mono<Void> terminateAllUserSessions(String userId, String terminatedBy, String reason) {
         log.info("Terminating all sessions for user: {}, by: {}, reason: {}", userId, terminatedBy, reason);
 
-        return sessionRepository.findByUserIdAndActiveTrue(userId)
+        // Convert String userId to Long for repository query
+        Long userIdLong;
+        try {
+            userIdLong = Long.parseLong(userId);
+        } catch (NumberFormatException e) {
+            return Mono.error(new IllegalArgumentException("Invalid user ID: " + userId));
+        }
+        
+        return sessionRepository.findByUserIdAndActiveTrue(userIdLong)
                 .flatMap(session -> {
                     session.setActive(false);
                     session.setLogoutAt(LocalDateTime.now());
@@ -185,7 +236,7 @@ public class SessionService {
                     return sessionRepository.save(session);
                 })
                 .then()
-                .doOnSuccess(v -> auditLogService.logSessionTermination(terminatedBy, userId, "ALL", reason));
+                .doOnSuccess(v -> auditLogService.logSessionTermination(terminatedBy, userId, "ALL", reason).subscribe());
     }
 
     /**
@@ -202,7 +253,12 @@ public class SessionService {
                     session.setLogoutAt(LocalDateTime.now());
                     session.setLogoutReason(reason + " (Terminated by: " + terminatedBy + ")");
                     return sessionRepository.save(session)
-                            .doOnSuccess(s -> auditLogService.logSessionTermination(terminatedBy, session.getUserId(), sessionId.toString(), reason))
+                            .doOnSuccess(s -> auditLogService.logSessionTermination(
+                                terminatedBy, 
+                                String.valueOf(session.getUserId()), 
+                                sessionId.toString(), 
+                                reason
+                            ).subscribe())
                             .then();
                 });
     }
@@ -238,6 +294,13 @@ public class SessionService {
                     session.setActive(false);
                     session.setLogoutAt(LocalDateTime.now());
                     session.setLogoutReason("Session expired (auto cleanup)");
+                    
+                    auditLogService.logSessionLogout(
+                        String.valueOf(session.getUserId()),
+                        session.getId().toString(),
+                        "Session expired (auto cleanup)"
+                    ).subscribe();
+                    
                     return sessionRepository.save(session);
                 })
                 .then()
@@ -259,6 +322,13 @@ public class SessionService {
                     session.setActive(false);
                     session.setLogoutAt(LocalDateTime.now());
                     session.setLogoutReason("Session inactive for 24 hours");
+                    
+                    auditLogService.logSessionLogout(
+                        String.valueOf(session.getUserId()),
+                        session.getId().toString(),
+                        "Session inactive for 24 hours"
+                    ).subscribe();
+                    
                     return sessionRepository.save(session);
                 })
                 .then()

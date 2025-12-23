@@ -134,6 +134,30 @@ public class AuditLogService {
                 null, permissionIds.toString(), null, null, true, null);
     }
     
+    // Session-specific audit log methods
+    
+    public Mono<AuditLog> logSessionCreation(String userId, String sessionId, String ipAddress) {
+        return log(userId, "SESSION_CREATE", "SESSION", sessionId,
+                null, null, ipAddress, null, true, null);
+    }
+    
+    public Mono<AuditLog> logSessionIpChange(String userId, String sessionId, String oldIp, String newIp) {
+        return log(userId, "SESSION_IP_CHANGE", "SESSION", sessionId,
+                oldIp, newIp, null, null, true, "IP address changed from " + oldIp + " to " + newIp);
+    }
+    
+    public Mono<AuditLog> logSessionLogout(String userId, String sessionId, String reason) {
+        return log(userId, "SESSION_LOGOUT", "SESSION", sessionId,
+                null, null, null, null, true, reason);
+    }
+    
+    public Mono<AuditLog> logSessionTermination(String terminatedBy, String userId, String sessionId, String reason) {
+        return log(terminatedBy, "SESSION_TERMINATE", "SESSION", sessionId,
+                null, null, null, null, true, "Session terminated. User: " + userId + ", Reason: " + reason);
+    }
+    
+    // Query methods
+    
     public Flux<AuditLog> getAuditLogsByUserId(String userId, int page, int size) {
         return auditLogRepository.findByUserId(userId,
                 org.springframework.data.domain.PageRequest.of(page, size,
@@ -151,25 +175,4 @@ public class AuditLogService {
                 org.springframework.data.domain.PageRequest.of(page, size,
                         org.springframework.data.domain.Sort.by("timestamp").descending()));
     }
-
-        public Mono<AuditLog> logSessionCreation(String userId, String sessionId, String ipAddress) {
-                return log(userId, "SESSION_CREATE", "SESSION", sessionId,
-                                null, null, ipAddress, null, true, null);
-        }
-
-        public Mono<AuditLog> logSessionIpChange(String userId, String sessionId, String oldIp, String newIp) {
-                String details = "IP_CHANGE: " + oldIp + " -> " + newIp;
-                return log(userId, "SESSION_IP_CHANGE", "SESSION", sessionId,
-                                oldIp, newIp, null, null, true, details);
-        }
-
-        public Mono<AuditLog> logSessionLogout(String userId, String sessionId, String reason) {
-                return log(userId, "SESSION_LOGOUT", "SESSION", sessionId,
-                                null, null, null, null, true, reason);
-        }
-
-        public Mono<AuditLog> logSessionTermination(String terminatedBy, String userId, String sessionId, String reason) {
-                return log(terminatedBy, "SESSION_TERMINATE", "SESSION", sessionId,
-                                null, null, null, null, true, reason + " (user: " + userId + ")");
-        }
 }

@@ -14,9 +14,11 @@ public interface SessionRepository extends R2dbcRepository<Session, Long> {
     
     Mono<Session> findBySessionToken(String sessionToken);
     
-    Flux<Session> findByUserId(String userId);
+    // Change from String to Long
+    Flux<Session> findByUserId(Long userId);
     
-    Flux<Session> findByUserIdAndActiveTrue(String userId);
+    // Change from String to Long
+    Flux<Session> findByUserIdAndActiveTrue(Long userId);
     
     @Query("SELECT * FROM tbl_session WHERE expires_at < :now AND active = true")
     Flux<Session> findExpiredSessions(LocalDateTime now);
@@ -33,7 +35,13 @@ public interface SessionRepository extends R2dbcRepository<Session, Long> {
     @Query("SELECT AVG(EXTRACT(EPOCH FROM (last_activity_at - login_at))/60) FROM tbl_session WHERE active = false")
     Mono<Double> findAverageSessionDuration();
     
-    // Add this method that SessionService needs
     @Query("SELECT COUNT(*) FROM tbl_session")
     Mono<Long> count();
+    
+    // If you need to keep String-based methods for backward compatibility, add these:
+    @Query("SELECT * FROM tbl_session WHERE user_id = CAST(:userId AS BIGINT)")
+    Flux<Session> findByUserIdAsString(String userId);
+    
+    @Query("SELECT * FROM tbl_session WHERE user_id = CAST(:userId AS BIGINT) AND active = true")
+    Flux<Session> findByUserIdAsStringAndActiveTrue(String userId);
 }

@@ -269,7 +269,7 @@ public class AuthService {
                                                         .toInstant()
                                                         .toEpochMilli())
                                                 .tokenType("Bearer")
-                                                .user(userService.mapToResponse(user))
+                                                // .user(userService.mapToResponse(user))
                                                 .mfaRequired(false)
                                                 .build());
                             }));

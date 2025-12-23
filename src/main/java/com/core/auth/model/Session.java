@@ -21,7 +21,7 @@ public class Session {
     private Long id;
     
     @Column("user_id")
-    private String userId;
+    private Long userId;  // Change from String to Long
     
     @Column("session_token")
     private String sessionToken;
