@@ -107,7 +107,7 @@ public class AuthService {
                 })
                 .onErrorResume(e -> {
                     log.error("Authentication error: {}", e.getMessage());
-                    return processFailedLogin(user, ipAddress, userAgent);
+                    return Mono.error(new AuthException("Invalid username or password"));
                 });
     }
 
