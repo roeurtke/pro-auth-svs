@@ -76,9 +76,15 @@ public class SessionService {
                                     log.info("Session created: {} for user: {}", savedSession.getId(), userId)
                             );
                 })
-                .doOnSuccess(session ->
-                        auditLogService.logSessionCreation(userId, session.getId().toString(), ipAddress).subscribe()
-                );
+                .doOnSuccess(session -> {
+                    // Audit log with error handling
+                    auditLogService.logSessionCreation(userId, session.getId().toString(), ipAddress)
+                            .onErrorResume(e -> {
+                                log.error("Failed to log session creation", e);
+                                return Mono.empty();
+                            })
+                            .subscribe();
+                });
     }
 
     /**
@@ -116,12 +122,18 @@ public class SessionService {
                         String oldIp = session.getIpAddress();
                         session.setIpAddress(ipAddress);
 
+                        // Audit log with error handling
                         auditLogService.logSessionIpChange(
                             String.valueOf(session.getUserId()), 
                             session.getId().toString(), 
                             oldIp, 
                             ipAddress
-                        ).subscribe();
+                        )
+                        .onErrorResume(e -> {
+                            log.error("Failed to log session IP change", e);
+                            return Mono.empty();
+                        })
+                        .subscribe();
                     }
 
                     return sessionRepository.save(session);
@@ -153,7 +165,15 @@ public class SessionService {
                     return sessionRepository.save(session);
                 })
                 .then()
-                .doOnSuccess(v -> auditLogService.logLogout(userId, ipAddress).subscribe());
+                .doOnSuccess(v -> {
+                    // Audit log with error handling
+                    auditLogService.logLogout(userId, ipAddress)
+                            .onErrorResume(e -> {
+                                log.error("Failed to log logout", e);
+                                return Mono.empty();
+                            })
+                            .subscribe();
+                });
     }
 
     /**
@@ -171,11 +191,19 @@ public class SessionService {
                     session.setLogoutReason(reason);
 
                     return sessionRepository.save(session)
-                            .doOnSuccess(s -> auditLogService.logSessionLogout(
-                                String.valueOf(session.getUserId()), 
-                                session.getId().toString(), 
-                                reason
-                            ).subscribe())
+                            .doOnSuccess(s -> {
+                                // Audit log with error handling
+                                auditLogService.logSessionLogout(
+                                    String.valueOf(session.getUserId()), 
+                                    session.getId().toString(), 
+                                    reason
+                                )
+                                .onErrorResume(e -> {
+                                    log.error("Failed to log session logout", e);
+                                    return Mono.empty();
+                                })
+                                .subscribe();
+                            })
                             .then();
                 });
     }
@@ -236,7 +264,15 @@ public class SessionService {
                     return sessionRepository.save(session);
                 })
                 .then()
-                .doOnSuccess(v -> auditLogService.logSessionTermination(terminatedBy, userId, "ALL", reason).subscribe());
+                .doOnSuccess(v -> {
+                    // Audit log with error handling
+                    auditLogService.logSessionTermination(terminatedBy, userId, "ALL", reason)
+                            .onErrorResume(e -> {
+                                log.error("Failed to log session termination", e);
+                                return Mono.empty();
+                            })
+                            .subscribe();
+                });
     }
 
     /**
@@ -253,12 +289,20 @@ public class SessionService {
                     session.setLogoutAt(LocalDateTime.now());
                     session.setLogoutReason(reason + " (Terminated by: " + terminatedBy + ")");
                     return sessionRepository.save(session)
-                            .doOnSuccess(s -> auditLogService.logSessionTermination(
-                                terminatedBy, 
-                                String.valueOf(session.getUserId()), 
-                                sessionId.toString(), 
-                                reason
-                            ).subscribe())
+                            .doOnSuccess(s -> {
+                                // Audit log with error handling
+                                auditLogService.logSessionTermination(
+                                    terminatedBy, 
+                                    String.valueOf(session.getUserId()), 
+                                    sessionId.toString(), 
+                                    reason
+                                )
+                                .onErrorResume(e -> {
+                                    log.error("Failed to log session termination", e);
+                                    return Mono.empty();
+                                })
+                                .subscribe();
+                            })
                             .then();
                 });
     }
@@ -295,11 +339,17 @@ public class SessionService {
                     session.setLogoutAt(LocalDateTime.now());
                     session.setLogoutReason("Session expired (auto cleanup)");
                     
+                    // Audit log with error handling
                     auditLogService.logSessionLogout(
                         String.valueOf(session.getUserId()),
                         session.getId().toString(),
                         "Session expired (auto cleanup)"
-                    ).subscribe();
+                    )
+                    .onErrorResume(e -> {
+                        log.error("Failed to log expired session cleanup", e);
+                        return Mono.empty();
+                    })
+                    .subscribe();
                     
                     return sessionRepository.save(session);
                 })
@@ -323,11 +373,17 @@ public class SessionService {
                     session.setLogoutAt(LocalDateTime.now());
                     session.setLogoutReason("Session inactive for 24 hours");
                     
+                    // Audit log with error handling
                     auditLogService.logSessionLogout(
                         String.valueOf(session.getUserId()),
                         session.getId().toString(),
                         "Session inactive for 24 hours"
-                    ).subscribe();
+                    )
+                    .onErrorResume(e -> {
+                        log.error("Failed to log inactive session cleanup", e);
+                        return Mono.empty();
+                    })
+                    .subscribe();
                     
                     return sessionRepository.save(session);
                 })
