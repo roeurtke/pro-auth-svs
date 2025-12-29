@@ -30,7 +30,6 @@ public class User {
     private String firstName;
     private String lastName;
     private String phone;
-    
     private boolean enabled;
     private boolean locked;
     private boolean mfaEnabled;
@@ -55,20 +54,9 @@ public class User {
     @Transient
     @Builder.Default
     private Set<Permission> permissions = new HashSet<>();
-    
-    public String getFullName() {
-        return firstName + " " + lastName;
-    }
-    
-    public boolean isAccountNonExpired() {
-        return true;
-    }
-    
-    public boolean isAccountNonLocked() {
-        return !locked;
-    }
-    
-    public boolean isCredentialsNonExpired() {
-        return true;
-    }
+
+    public String getFullName() { return firstName + " " + lastName; }
+    public boolean isAccountNonExpired() { return true; }
+    public boolean isAccountNonLocked() { return !locked; }
+    public boolean isCredentialsNonExpired() { return true; }
 }
