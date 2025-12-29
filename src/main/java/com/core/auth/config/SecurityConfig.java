@@ -1,6 +1,5 @@
 package com.core.auth.config;
 
-// import com.core.auth.security.JwtAuthManager;
 import com.core.auth.repository.JwtSecurityContextRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -31,7 +30,6 @@ import java.util.Arrays;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-//     private final JwtAuthManager jwtAuthManager;
     private final JwtSecurityContextRepository securityContextRepository;
     private final ApiConfig apiConfig;
     private final CorsConfig corsConfig;
@@ -67,8 +65,6 @@ public class SecurityConfig {
                         .anyExchange().authenticated()
                 )
                 .securityContextRepository(securityContextRepository)
-                // REMOVE THIS LINE - Don't set global authentication manager
-                // .authenticationManager(jwtAuthManager)
                 .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
                 .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
                 .build();
