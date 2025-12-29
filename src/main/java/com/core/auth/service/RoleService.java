@@ -177,7 +177,7 @@ public class RoleService {
     
     @Transactional
     public Mono<Void> assignDefaultRole(Long userId) {
-        return findByName("USER")
+        return roleRepository.findByCode("USER")
                 .switchIfEmpty(createDefaultUserRole())
                 .flatMap(role -> assignRoleToUser(userId, role.getId()));
     }
@@ -191,7 +191,7 @@ public class RoleService {
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
-        
+
         return roleRepository.save(userRole);
     }
     

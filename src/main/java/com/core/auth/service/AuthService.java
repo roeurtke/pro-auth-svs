@@ -161,8 +161,7 @@ public class AuthService {
                 if (exists) {
                     return Mono.error(new AuthException("Email already exists"));
                 }
-                
-                // Create user
+
                 User user = User.builder()
                     .username(request.getUsername())
                     .email(request.getEmail())
@@ -176,21 +175,19 @@ public class AuthService {
                     .createdAt(LocalDateTime.now())
                     .updatedAt(LocalDateTime.now())
                     .build();
-                
+
                 return userService.save(user)
-                    .flatMap(savedUser -> {
-                        // Assign default role (USER)
-                        return roleService.assignDefaultRole(savedUser.getId())
-                            .thenReturn(savedUser);
-                    })
-                    .map(savedUser -> {
-                        // Return response without tokens (user needs to login)
-                        return AuthResponse.builder()
-                            .user(userService.mapToResponse(user))
-                            .build();
-                    });
+                    .flatMap(savedUser ->
+                        roleService.assignDefaultRole(savedUser.getId())
+                            .thenReturn(savedUser)
+                    )
+                    .map(savedUser ->
+                        AuthResponse.builder()
+                            .user(userService.mapToResponse(savedUser))
+                            .build()
+                    );
             })
-            .doOnSuccess(response -> 
+            .doOnSuccess(response ->
                 auditLogService.logRegistration(response.getUser().getUsername())
             );
     }
