@@ -26,6 +26,13 @@ public class AuthController {
     
     private final AuthService authService;
     
+    @PostMapping(ApiPaths.REGISTER)
+    @Operation(summary = "User registration")
+    public Mono<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest request) {
+        return authService.register(request)
+                .map(response -> ApiResponse.success("Registration successful", response));
+    }
+
     @PostMapping(ApiPaths.LOGIN)
     @Operation(summary = "User login")
     public Mono<ApiResponse<AuthResponse>> login(
@@ -37,13 +44,6 @@ public class AuthController {
         
         return authService.login(request, ipAddress, userAgent)
                 .map(response -> ApiResponse.success("Login successful", response));
-    }
-    
-    @PostMapping(ApiPaths.REGISTER)
-    @Operation(summary = "User registration")
-    public Mono<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest request) {
-        return authService.register(request)
-                .map(response -> ApiResponse.success("Registration successful", response));
     }
     
     @PostMapping(ApiPaths.REFRESH)
