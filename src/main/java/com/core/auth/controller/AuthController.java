@@ -28,9 +28,9 @@ public class AuthController {
     
     @PostMapping(ApiPaths.REGISTER)
     @Operation(summary = "User registration")
-    public Mono<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest request) {
+    public Mono<ApiResponse<Void>> register(@Valid @RequestBody RegisterRequest request) {
         return authService.register(request)
-                .map(response -> ApiResponse.success("Registration successful", response));
+                .then(Mono.just(ApiResponse.<Void>success("Registration successful", null)));
     }
 
     @PostMapping(ApiPaths.LOGIN)

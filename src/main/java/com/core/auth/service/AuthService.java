@@ -149,7 +149,7 @@ public class AuthService {
     }
     
     @Transactional
-    public Mono<AuthResponse> register(RegisterRequest request) {
+    public Mono<Void> register(RegisterRequest request) {
         return userService.existsByUsername(request.getUsername())
             .flatMap(exists -> {
                 if (exists) {
@@ -181,15 +181,11 @@ public class AuthService {
                         roleService.assignDefaultRole(savedUser.getId())
                             .thenReturn(savedUser)
                     )
-                    .map(savedUser ->
-                        AuthResponse.builder()
-                            .user(userService.mapToResponse(savedUser))
-                            .build()
-                    );
-            })
-            .doOnSuccess(response ->
-                auditLogService.logRegistration(response.getUser().getUsername())
-            );
+                    .doOnSuccess(savedUser ->
+                        auditLogService.logRegistration(savedUser.getUsername())
+                    )
+                    .then(); // Return Mono<Void>
+            });
     }
     
     @Transactional
@@ -219,7 +215,8 @@ public class AuthService {
             .then(sessionService.logout(userId, ipAddress))
             .doOnSuccess(v -> 
                 auditLogService.logLogout(userId, ipAddress)
-            );
+            )
+            .then();
     }
     
     private Mono<AuthResponse> generateTokens(User user, Authentication auth, String ipAddress, String userAgent) {
