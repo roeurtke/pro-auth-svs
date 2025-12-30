@@ -1,6 +1,5 @@
-package com.core.auth.config;
+package com.core.auth.exception;
 
-import com.core.auth.exception.*;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.security.SignatureException;
 import org.springframework.http.HttpStatus;
