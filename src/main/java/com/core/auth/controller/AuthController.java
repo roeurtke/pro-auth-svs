@@ -6,10 +6,8 @@ import com.core.auth.dto.request.RegisterRequest;
 import com.core.auth.dto.request.TokenRefreshRequest;
 import com.core.auth.dto.response.ApiResponse;
 import com.core.auth.dto.response.AuthResponse;
-// import com.core.auth.security.JwtTokenProvider;
 import com.core.auth.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
-// import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +24,6 @@ import reactor.core.publisher.Mono;
 public class AuthController {
     
     private final AuthService authService;
-    // private final JwtTokenProvider jwtTokenProvider;
     
     @PostMapping(ApiPaths.REGISTER)
     @Operation(summary = "User registration")
