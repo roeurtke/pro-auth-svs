@@ -210,12 +210,12 @@ public class AuthService {
     }
     
     @Transactional
-    public Mono<Void> logout(String token, String userId, String ipAddress) {
+    public Mono<Void> logout(String token, String ipAddress) {
+        Long userId = jwtTokenProvider.getUserIdFromToken(token);
+
         return tokenService.revokeToken(token)
-            .then(sessionService.logout(userId, ipAddress))
-            .doOnSuccess(v -> 
-                auditLogService.logLogout(userId, ipAddress)
-            )
+            .then(sessionService.logout(userId.toString(), ipAddress))
+            .doOnSuccess(v -> auditLogService.logLogout(userId.toString(), ipAddress))
             .then();
     }
     

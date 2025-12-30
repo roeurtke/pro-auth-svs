@@ -6,9 +6,10 @@ import com.core.auth.dto.request.RegisterRequest;
 import com.core.auth.dto.request.TokenRefreshRequest;
 import com.core.auth.dto.response.ApiResponse;
 import com.core.auth.dto.response.AuthResponse;
+// import com.core.auth.security.JwtTokenProvider;
 import com.core.auth.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+// import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ import reactor.core.publisher.Mono;
 public class AuthController {
     
     private final AuthService authService;
+    // private final JwtTokenProvider jwtTokenProvider;
     
     @PostMapping(ApiPaths.REGISTER)
     @Operation(summary = "User registration")
@@ -61,17 +63,14 @@ public class AuthController {
     
     @PostMapping(ApiPaths.LOGOUT)
     @PreAuthorize("isAuthenticated()")
-    @SecurityRequirement(name = "bearerAuth")
-    @Operation(summary = "User logout")
     public Mono<ApiResponse<Void>> logout(
             @RequestHeader(HttpHeaders.AUTHORIZATION) String authHeader,
-            @RequestParam String userId,
             ServerHttpRequest serverRequest) {
-        
-        String token = authHeader.substring(7); // Remove "Bearer " prefix
+
+        String token = authHeader.substring(7);
         String ipAddress = extractIpAddress(serverRequest);
-        
-        return authService.logout(token, userId, ipAddress)
+
+        return authService.logout(token, ipAddress)
                 .thenReturn(ApiResponse.success("Logout successful", null));
     }
     
