@@ -4,12 +4,10 @@ import com.core.auth.model.AuditLog;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.r2dbc.repository.Query;
 import org.springframework.data.r2dbc.repository.R2dbcRepository;
-import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
 
 import java.time.LocalDateTime;
 
-@Repository
 public interface AuditLogRepository extends R2dbcRepository<AuditLog, Long> {
     
     Flux<AuditLog> findByUserId(Long userId, Pageable pageable);

@@ -96,38 +96,38 @@ public class SessionService {
 
         return sessionRepository.findBySessionToken(sessionToken)
                 .switchIfEmpty(Mono.error(new SessionNotFoundException(sessionToken)))
-                .flatMap(session -> {
+                .flatMap((Session session) -> {
                     if (!session.isActive()) {
-                        return Mono.error(new RuntimeException("Session is not active"));
+                        return Mono.<Session>error(new RuntimeException("Session is not active"));
                     }
 
-                    if (session.getExpiresAt().isBefore(LocalDateTime.now())) {
+                    LocalDateTime now = LocalDateTime.now();
+                    if (session.getExpiresAt().isBefore(now)) {
                         log.info("Session expired: {}", session.getId());
                         session.setActive(false);
                         session.setLogoutReason("Session expired");
-                        session.setLogoutAt(LocalDateTime.now());
+                        session.setLogoutAt(now);
                         return sessionRepository.save(session)
-                                .flatMap(s -> Mono.error(new RuntimeException("Session expired")));
+                                .flatMap(savedSession -> Mono.<Session>error(new RuntimeException("Session expired")));
                     }
 
-                    session.setLastActivityAt(LocalDateTime.now());
+                    session.setLastActivityAt(now);
 
-                    if (Duration.between(LocalDateTime.now(), session.getExpiresAt()).toMinutes() < 5) {
-                        session.setExpiresAt(LocalDateTime.now().plusMinutes(sessionTimeoutMinutes));
+                    if (Duration.between(now, session.getExpiresAt()).toMinutes() < 5) {
+                        session.setExpiresAt(now.plusMinutes(sessionTimeoutMinutes));
                         log.debug("Extended session: {}", session.getId());
                     }
 
-                    if (!session.getIpAddress().equals(ipAddress)) {
+                    if (session.getIpAddress() != null && !session.getIpAddress().equals(ipAddress)) {
                         log.info("IP address changed for session {}: {} -> {}", session.getId(), session.getIpAddress(), ipAddress);
                         String oldIp = session.getIpAddress();
                         session.setIpAddress(ipAddress);
 
-                        // Audit log with error handling
                         auditLogService.logSessionIpChange(
-                            String.valueOf(session.getUserId()), 
-                            session.getId().toString(), 
-                            oldIp, 
-                            ipAddress
+                                String.valueOf(session.getUserId()),
+                                session.getId().toString(),
+                                oldIp,
+                                ipAddress
                         )
                         .onErrorResume(e -> {
                             log.error("Failed to log session IP change", e);
@@ -138,7 +138,7 @@ public class SessionService {
 
                     return sessionRepository.save(session);
                 })
-                .doOnSuccess(session -> log.debug("Session validated: {}", session.getId()))
+                .doOnSuccess(savedSession -> log.debug("Session validated: {}", savedSession.getId()))
                 .doOnError(error -> log.warn("Session validation failed: {}", error.getMessage()));
     }
 
