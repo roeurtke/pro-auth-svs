@@ -162,11 +162,12 @@ public class UserService {
     @Transactional
     public Mono<UserResponse> getUserWithDetails(Long userId) {
         return findById(userId)
-                .flatMap(user -> 
+                .flatMap(user ->
                     roleService.getUserWithAuthorities(userId)
-                        .map(userWithAuthorities -> 
-                            mapToResponse(userWithAuthorities)
-                        )
+                            .map(userWithAuthorities -> {
+                                user.setRoles(userWithAuthorities.getRoles());
+                                return mapToResponse(user);
+                            })
                 );
     }
     
@@ -183,7 +184,6 @@ public class UserService {
                 .createdAt(user.getCreatedAt())
                 .lastLoginAt(user.getLastLoginAt())
                 .roles(roleService.mapRolesToResponse(user.getRoles()))
-                .permissions(roleService.mapPermissionsToResponse(user.getPermissions()))
                 .build();
     }
 }

@@ -58,7 +58,7 @@ public class UserController {
     }
     
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Get user by ID (Admin only)")
     public Mono<ApiResponse<UserResponse>> getUserById(@PathVariable Long id) {

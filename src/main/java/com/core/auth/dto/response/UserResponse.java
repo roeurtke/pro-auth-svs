@@ -25,5 +25,5 @@ public class UserResponse {
     private LocalDateTime createdAt;
     private LocalDateTime lastLoginAt;
     private Set<RoleResponse> roles;
-    private Set<PermissionResponse> permissions;
+    // private Set<PermissionResponse> permissions;
 }
