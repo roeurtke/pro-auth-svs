@@ -6,6 +6,7 @@ import com.core.auth.dto.request.RegisterRequest;
 import com.core.auth.dto.request.TokenRefreshRequest;
 import com.core.auth.dto.response.ApiResponse;
 import com.core.auth.dto.response.AuthResponse;
+import com.core.auth.exception.AuthException;
 import com.core.auth.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -61,14 +62,32 @@ public class AuthController {
     @PostMapping(ApiPaths.LOGOUT)
     @PreAuthorize("isAuthenticated()")
     public Mono<ApiResponse<Void>> logout(
-            @RequestHeader(HttpHeaders.AUTHORIZATION) String authHeader,
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authHeader,
             ServerHttpRequest serverRequest) {
 
-        String token = authHeader.substring(7);
+        String token = extractBearerToken(authHeader);
         String ipAddress = extractIpAddress(serverRequest);
 
         return authService.logout(token, ipAddress)
                 .thenReturn(ApiResponse.success("Logout successful", null));
+    }
+
+    private String extractBearerToken(String authHeader) {
+        if (authHeader == null || authHeader.isBlank()) {
+            throw new AuthException("Authorization header is required");
+        }
+
+        String trimmed = authHeader.trim();
+        if (!trimmed.startsWith("Bearer ")) {
+            throw new AuthException("Authorization header must use Bearer token format");
+        }
+
+        String token = trimmed.substring(7).trim();
+        if (token.isEmpty()) {
+            throw new AuthException("Bearer token is missing");
+        }
+
+        return token;
     }
     
     private String extractIpAddress(ServerHttpRequest request) {

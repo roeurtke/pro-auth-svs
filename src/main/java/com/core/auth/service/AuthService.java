@@ -231,15 +231,16 @@ public class AuthService {
                 String refreshToken = tuple.getT2();
                 
                 log.info("1. Testing Token Save...");
-                return tokenService.saveRefreshToken(user.getId().toString(), refreshToken)
-                        .doOnSuccess(v -> log.info("   ✅ Token saved successfully"))
+                return tokenService.saveAccessToken(user.getId().toString(), accessToken)
+                        .then(tokenService.saveRefreshToken(user.getId().toString(), refreshToken))
+                        .doOnSuccess(v -> log.info("   ✅ Tokens saved successfully"))
                         .doOnError(e -> {
                             log.error("   ❌ Token save failed: {}", e.getMessage());
                             log.error("   Stack trace:", e);
                         })
                         .onErrorResume(e -> {
                             log.warn("   ⚠️ Continuing without token save");
-                            return Mono.empty(); // Continue even if token save fails
+                            return Mono.empty();
                         })
                         .then(Mono.defer(() -> {
                             log.info("2. Testing Session Creation...");
@@ -251,7 +252,7 @@ public class AuthService {
                                     })
                                     .onErrorResume(e -> {
                                         log.warn("   ⚠️ Continuing without session");
-                                        return Mono.empty(); // Continue even if session fails
+                                        return Mono.empty();
                                     })
                                     .thenReturn(AuthResponse.builder()
                                             .accessToken(accessToken)
@@ -261,7 +262,6 @@ public class AuthService {
                                                     .toInstant()
                                                     .toEpochMilli())
                                             .tokenType("Bearer")
-                                            // .user(userService.mapToResponse(user))
                                             .mfaRequired(false)
                                             .build());
                         }));

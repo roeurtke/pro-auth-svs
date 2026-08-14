@@ -41,6 +41,43 @@ public class TokenService {
                 .switchIfEmpty(Mono.empty());
     }
 
+    public Mono<Boolean> validateAccessToken(String accessToken) {
+        try {
+            if (jwtTokenProvider.isTokenExpired(accessToken)) {
+                return Mono.just(false);
+            }
+
+            return tokenRepository.findByToken(accessToken)
+                    .map(token -> !token.isRevoked() && !token.isExpired())
+                    .switchIfEmpty(Mono.just(false));
+        } catch (Exception e) {
+            return Mono.just(false);
+        }
+    }
+
+    public Mono<Void> saveAccessToken(String userId, String accessToken) {
+        Long userIdLong;
+        try {
+            userIdLong = Long.parseLong(userId);
+        } catch (NumberFormatException e) {
+            return Mono.error(new IllegalArgumentException("Invalid user ID: " + userId));
+        }
+
+        LocalDateTime expiresAt = jwtTokenProvider.getExpirationDateFromToken(accessToken);
+        Token token = Token.builder()
+                .userId(userIdLong)
+                .token(accessToken)
+                .tokenType("ACCESS")
+                .revoked(false)
+                .expired(false)
+                .createdAt(LocalDateTime.now())
+                .expiresAt(expiresAt)
+                .revokedAt(null)
+                .build();
+
+        return tokenRepository.save(token).then();
+    }
+
     public Mono<Void> saveRefreshToken(String userId, String refreshToken) {
         // Convert userId from String to Long
         Long userIdLong;

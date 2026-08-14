@@ -1,5 +1,6 @@
 package com.core.auth.security;
 
+import com.core.auth.service.TokenService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Primary;
@@ -21,6 +22,7 @@ import java.util.stream.Collectors;
 public class JwtAuthManager implements ReactiveAuthenticationManager {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final TokenService tokenService;
 
     @Override
     public Mono<Authentication> authenticate(Authentication authentication) {
@@ -28,22 +30,33 @@ public class JwtAuthManager implements ReactiveAuthenticationManager {
                 .flatMap(auth -> {
                     String token = auth.getCredentials().toString();
 
+                    if (token == null || token.isBlank()) {
+                        return Mono.error(new BadCredentialsException("JWT token is missing"));
+                    }
+
                     if (jwtTokenProvider.isTokenExpired(token)) {
                         return Mono.error(new BadCredentialsException("JWT token expired"));
                     }
 
-                    String username = jwtTokenProvider.getUsernameFromToken(token);
-                    List<String> authorities = jwtTokenProvider.getAuthoritiesFromToken(token);
+                    return tokenService.validateAccessToken(token)
+                            .flatMap(valid -> {
+                                if (!valid) {
+                                    return Mono.error(new BadCredentialsException("JWT token is invalid or revoked"));
+                                }
 
-                    List<SimpleGrantedAuthority> grantedAuthorities = authorities.stream()
-                            .map(SimpleGrantedAuthority::new)
-                            .collect(Collectors.toList());
+                                String username = jwtTokenProvider.getUsernameFromToken(token);
+                                List<String> authorities = jwtTokenProvider.getAuthoritiesFromToken(token);
 
-                    return Mono.just(new UsernamePasswordAuthenticationToken(
-                            username,
-                            token,
-                            grantedAuthorities
-                    ));
+                                List<SimpleGrantedAuthority> grantedAuthorities = authorities.stream()
+                                        .map(SimpleGrantedAuthority::new)
+                                        .collect(Collectors.toList());
+
+                                return Mono.just(new UsernamePasswordAuthenticationToken(
+                                        username,
+                                        token,
+                                        grantedAuthorities
+                                ));
+                            });
                 });
     }
 }
