@@ -263,17 +263,29 @@ public class RoleService {
     
     public Set<GrantedAuthority> getAuthoritiesForUser(Long userId) {
         Set<GrantedAuthority> authorities = new HashSet<>();
-        
-        // Add role authorities
-        roleRepository.findByUserId(userId)
-                .map(role -> new SimpleGrantedAuthority("ROLE_" + role.getCode()))
-                .subscribe(authorities::add);
-        
-        // Add permission authorities
-        permissionRepository.findByUserId(userId)
-                .map(permission -> new SimpleGrantedAuthority("PERM_" + permission.getCode()))
-                .subscribe(authorities::add);
-        
+
+        Set<String> roleAuthorities = roleRepository.findByUserId(userId)
+                .map(role -> "ROLE_" + role.getCode())
+                .collect(Collectors.toSet())
+                .block();
+
+        if (roleAuthorities != null) {
+            roleAuthorities.forEach(code -> authorities.add(new SimpleGrantedAuthority(code)));
+        }
+
+        Set<String> permissionAuthorities = permissionRepository.findByUserId(userId)
+                .collect(
+                        HashSet<String>::new,
+                        (set, permission) -> {
+                            set.add(permission.getCode());
+                        }
+                )
+                .block();
+
+        if (permissionAuthorities != null) {
+            permissionAuthorities.forEach(code -> authorities.add(new SimpleGrantedAuthority(code)));
+        }
+
         return authorities;
     }
     

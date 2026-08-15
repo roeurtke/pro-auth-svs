@@ -55,10 +55,10 @@ public class SecurityConfig {
                                 "/actuator/health"
                         ).permitAll()
                         // Admin endpoints
-                        .pathMatchers(HttpMethod.GET, apiConfig.getAdminPath() + "/**").hasRole("ADMIN")
-                        .pathMatchers(HttpMethod.POST, apiConfig.getAdminPath() + "/**").hasRole("ADMIN")
-                        .pathMatchers(HttpMethod.PUT, apiConfig.getAdminPath() + "/**").hasRole("ADMIN")
-                        .pathMatchers(HttpMethod.DELETE, apiConfig.getAdminPath() + "/**").hasRole("ADMIN")
+                        .pathMatchers(HttpMethod.GET, apiConfig.getAdminPath() + "/**").authenticated()
+                        .pathMatchers(HttpMethod.POST, apiConfig.getAdminPath() + "/**").authenticated()
+                        .pathMatchers(HttpMethod.PUT, apiConfig.getAdminPath() + "/**").authenticated()
+                        .pathMatchers(HttpMethod.DELETE, apiConfig.getAdminPath() + "/**").authenticated()
                         // Authenticated endpoints
                         .pathMatchers(apiConfig.getAuthPath() + "/logout").authenticated()
                         .pathMatchers(apiConfig.getAuthPath() + "/mfa/**").authenticated()

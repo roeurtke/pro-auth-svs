@@ -8,6 +8,7 @@ import com.core.auth.model.User;
 import com.core.auth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -67,6 +68,7 @@ public class UserService {
         return userRepository.save(user);
     }
 
+    @PreAuthorize("hasAuthority('USER_CREATE')")
     @Transactional
     public Mono<User> createUser(UserCreateRequest request) {
         return userRepository.existsByUsername(request.getUsername())
@@ -112,6 +114,7 @@ public class UserService {
                         auditLogService.logUserUpdate(savedUser.getId(), "User account created"));
     }    
 
+    @PreAuthorize("hasAuthority('USER_UPDATE')")
     @Transactional
     public Mono<User> updateProfile(Long userId, UserUpdateRequest request) {
         return findById(userId)
@@ -136,6 +139,7 @@ public class UserService {
                 });
     }
 
+    @PreAuthorize("hasAuthority('USER_UPDATE')")
     @Transactional
     public Mono<User> updateUser(Long userId, UserUpdateRequest request) {
         return findById(userId)
@@ -185,6 +189,7 @@ public class UserService {
                 });
     }
 
+    @PreAuthorize("hasAuthority('USER_UPDATE')")
     @Transactional
     public Mono<Void> changePassword(Long userId, String oldPassword, String newPassword) {
         return findById(userId)
@@ -257,6 +262,7 @@ public class UserService {
                 });
     }
     
+    @PreAuthorize("hasAuthority('USER_VIEW')")
     @Transactional
     public Mono<UserResponse> getUserWithDetails(Long userId) {
         return findById(userId)
@@ -284,4 +290,5 @@ public class UserService {
                 .roles(roleService.mapRolesToResponse(user.getRoles()))
                 .build();
     }
+
 }

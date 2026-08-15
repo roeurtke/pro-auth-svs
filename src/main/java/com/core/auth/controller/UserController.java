@@ -11,7 +11,6 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
@@ -24,7 +23,6 @@ public class UserController {
     private final UserService userService;
     
     @GetMapping(ApiPaths.ME)
-    @PreAuthorize("hasAuthority('USER_VIEW')")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Get current user profile")
     public Mono<ApiResponse<UserResponse>> getCurrentUser(@RequestParam Long userId) {
@@ -33,7 +31,6 @@ public class UserController {
     }
     
     @PutMapping(ApiPaths.UPDATE_PROFILE)
-    @PreAuthorize("hasAuthority('USER_UPDATE')")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Update user profile")
     public Mono<ApiResponse<UserResponse>> updateProfile(
@@ -46,7 +43,6 @@ public class UserController {
     }
     
     @PostMapping(ApiPaths.CHANGE_PASSWORD)
-    @PreAuthorize("hasAuthority('USER_UPDATE')")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Change user password")
     public Mono<ApiResponse<Void>> changePassword(
@@ -63,7 +59,6 @@ public class UserController {
      * Only accessible by users with ADMIN role.
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('USER_VIEW')")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Get user by ID")
     public Mono<ApiResponse<UserResponse>> getUserById(@PathVariable Long id) {
@@ -76,7 +71,6 @@ public class UserController {
      * Only accessible by users with ADMIN role.
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('USER_CREATE')")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Create user")
     public Mono<ApiResponse<UserResponse>> createUser(@Valid @RequestBody UserCreateRequest request) {
@@ -90,7 +84,6 @@ public class UserController {
      * Only accessible by users with ADMIN role.
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('USER_UPDATE')")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Update user")
     public Mono<ApiResponse<UserResponse>> updateUser(
