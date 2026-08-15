@@ -7,6 +7,7 @@ import com.core.auth.dto.response.RoleResponse;
 import com.core.auth.model.Permission;
 import com.core.auth.model.Role;
 import com.core.auth.model.User;
+import com.core.auth.model.UserRole;
 import com.core.auth.repository.RoleRepository;
 import com.core.auth.repository.PermissionRepository;
 import com.core.auth.repository.RolePermissionRepository;
@@ -115,6 +116,46 @@ public class RoleService {
                                 auditLogService.logRoleUpdate(roleId, "Role updated")
                             );
                 });
+    }
+
+    @Transactional
+    public Mono<Void> updateUserRoles(Long userId, Set<Long> roleIds) {
+        if (roleIds == null) {
+            return Mono.empty();
+        }
+
+        // Empty set means remove all roles.
+        if (roleIds.isEmpty()) {
+            return userRoleRepository.deleteByUserId(userId)
+                    .then()
+                    .doOnSuccess(v -> auditLogService.logUserUpdate(userId, "All user roles removed"));
+        }
+
+        // First verify that every requested role actually exists.
+        return roleRepository.findAllById(roleIds)
+                .collectList()
+                .flatMap(existingRoles -> {
+                    Set<Long> existingRoleIds = existingRoles.stream()
+                            .map(Role::getId)
+                            .collect(Collectors.toSet());
+
+                    Set<Long> invalidRoleIds = new HashSet<>(roleIds);
+                    invalidRoleIds.removeAll(existingRoleIds);
+
+                    if (!invalidRoleIds.isEmpty()) {
+                        return Mono.error(new RuntimeException("Invalid role IDs: " + invalidRoleIds));
+                    }
+
+                    // Replace the user's existing roles.
+                    return userRoleRepository.deleteByUserId(userId)
+                            .thenMany(
+                                    Flux.fromIterable(roleIds)
+                                            .map(roleId -> new UserRole(userId, roleId))
+                                            .flatMap(userRoleRepository::save)
+                            )
+                            .then();
+                })
+                .doOnSuccess(v -> auditLogService.logUserUpdate(userId, "User roles updated"));
     }
     
     @Transactional

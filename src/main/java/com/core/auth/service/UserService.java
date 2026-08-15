@@ -1,5 +1,6 @@
 package com.core.auth.service;
 
+import com.core.auth.dto.request.UserCreateRequest;
 import com.core.auth.dto.request.UserUpdateRequest;
 import com.core.auth.dto.response.UserResponse;
 import com.core.auth.exception.UserNotFoundException;
@@ -65,9 +66,54 @@ public class UserService {
         user.setUpdatedAt(LocalDateTime.now());
         return userRepository.save(user);
     }
-    
+
     @Transactional
-    public Mono<User> update(Long userId, UserUpdateRequest request) {
+    public Mono<User> createUser(UserCreateRequest request) {
+        return userRepository.existsByUsername(request.getUsername())
+                .flatMap(usernameExists -> {
+                    if (usernameExists) {
+                        return Mono.error(new RuntimeException("Username already exists"));
+                    }
+                    return userRepository.existsByEmail(request.getEmail());
+                })
+                .flatMap(emailExists -> {
+                    if (emailExists) {
+                        return Mono.error(new RuntimeException("Email already exists"));
+                    }
+
+                    User user = User.builder()
+                            .username(request.getUsername())
+                            .email(request.getEmail())
+                            .password(passwordEncoder.encode(request.getPassword()))
+                            .firstName(request.getFirstName())
+                            .lastName(request.getLastName())
+                            .phone(request.getPhone())
+                            .enabled(request.getEnabled() == null || request.getEnabled())
+                            .locked(false)
+                            .mfaEnabled(false)
+                            .failedLoginAttempts(0)
+                            .createdAt(LocalDateTime.now())
+                            .updatedAt(LocalDateTime.now())
+                            .build();
+
+                    return userRepository.save(user);
+                })
+                .flatMap(savedUser -> {
+                    // If roleIds were supplied by the admin, assign those roles.
+                    // Otherwise assign the default USER role.
+                    if (request.getRoleIds() != null && !request.getRoleIds().isEmpty()) {
+                        return roleService.updateUserRoles(savedUser.getId(), request.getRoleIds())
+                                .thenReturn(savedUser);
+                    }
+                    return roleService.assignDefaultRole(savedUser.getId())
+                            .thenReturn(savedUser);
+                })
+                .doOnSuccess(savedUser ->
+                        auditLogService.logUserUpdate(savedUser.getId(), "User account created"));
+    }    
+
+    @Transactional
+    public Mono<User> updateProfile(Long userId, UserUpdateRequest request) {
         return findById(userId)
                 .flatMap(user -> {
                     if (request.getFirstName() != null) {
@@ -75,6 +121,9 @@ public class UserService {
                     }
                     if (request.getLastName() != null) {
                         user.setLastName(request.getLastName());
+                    }
+                    if (request.getEmail() != null) {
+                        user.setEmail(request.getEmail());
                     }
                     if (request.getPhone() != null) {
                         user.setPhone(request.getPhone());
@@ -86,7 +135,56 @@ public class UserService {
                             );
                 });
     }
-    
+
+    @Transactional
+    public Mono<User> updateUser(Long userId, UserUpdateRequest request) {
+        return findById(userId)
+                .flatMap(user -> {
+                    if (request.getFirstName() != null) {
+                        user.setFirstName(request.getFirstName());
+                    }
+                    if (request.getLastName() != null) {
+                        user.setLastName(request.getLastName());
+                    }
+                    if (request.getEmail() != null) {
+                        user.setEmail(request.getEmail());
+                    }
+                    if (request.getPhone() != null) {
+                        user.setPhone(request.getPhone());
+                    }
+                    if (request.getEnabled() != null) {
+                        user.setEnabled(request.getEnabled());
+                    }
+                    if (request.getLocked() != null) {
+                        user.setLocked(request.getLocked());
+                    }
+                    if (request.getMfaEnabled() != null) {
+                        user.setMfaEnabled(request.getMfaEnabled());
+                    }
+                    if (request.getMfaSecret() != null) {
+                        user.setMfaSecret(request.getMfaSecret());
+                    }
+
+                    return save(user)
+                            .flatMap(updatedUser -> {
+
+                                if (request.getRoleIds() != null) {
+                                    return roleService
+                                            .updateUserRoles(userId,request.getRoleIds())
+                                            .thenReturn(updatedUser);
+                                }
+
+                                return Mono.just(updatedUser);
+                            })
+                            .doOnSuccess(updatedUser ->
+                                    auditLogService.logUserUpdate(
+                                            userId,
+                                            "User account updated by administrator"
+                                    )
+                            );
+                });
+    }
+
     @Transactional
     public Mono<Void> changePassword(Long userId, String oldPassword, String newPassword) {
         return findById(userId)
