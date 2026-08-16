@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import java.time.LocalDateTime;
 import java.util.Set;
 
@@ -193,21 +195,37 @@ public class AuditLogService {
             return Flux.error(new IllegalArgumentException("Invalid user ID: " + userIdStr));
         }
         
-        return auditLogRepository.findByUserId(userId,
-                org.springframework.data.domain.PageRequest.of(page, size,
-                        org.springframework.data.domain.Sort.by("timestamp").descending()));
+        return auditLogRepository.findByUserId(
+            userId,
+            PageRequest.of(
+                    page,
+                    size,
+                    Sort.by(AuditLog::getTimestamp).descending()
+                )
+            );
     }
     
     public Flux<AuditLog> getAuditLogsByAction(String action, int page, int size) {
-        return auditLogRepository.findByAction(action,
-                org.springframework.data.domain.PageRequest.of(page, size,
-                        org.springframework.data.domain.Sort.by("timestamp").descending()));
+        return auditLogRepository.findByAction(
+            action,
+            PageRequest.of(
+                    page,
+                    size,
+                    Sort.by(AuditLog::getTimestamp).descending()
+                )
+            );
     }
     
     public Flux<AuditLog> getAuditLogsByDateRange(LocalDateTime startDate, LocalDateTime endDate, int page, int size) {
-        return auditLogRepository.findByTimestampBetween(startDate, endDate,
-                org.springframework.data.domain.PageRequest.of(page, size,
-                        org.springframework.data.domain.Sort.by("timestamp").descending()));
+        return auditLogRepository.findByTimestampBetween(
+            startDate,
+            endDate,
+            PageRequest.of(
+                    page,
+                    size,
+                    Sort.by(AuditLog::getTimestamp).descending()
+                )
+            );
     }
     
     // Helper method to parse userId
