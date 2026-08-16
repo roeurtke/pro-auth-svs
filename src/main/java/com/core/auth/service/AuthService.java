@@ -88,8 +88,7 @@ public class AuthService {
                 
                 log.info("Password verified successfully for user: {}", user.getUsername());
                 
-                // Get authorities - handle as synchronous call
-                return Mono.fromCallable(() -> roleService.getAuthoritiesForUser(user.getId()))
+                return roleService.getAuthoritiesForUser(user.getId())
                     .onErrorResume(e -> {
                         log.warn("Failed to get authorities, using empty set: {}", e.getMessage());
                         return Mono.just(new HashSet<GrantedAuthority>());
@@ -195,17 +194,15 @@ public class AuthService {
                 String username = jwtTokenProvider.getUsernameFromToken(refreshToken);
                 
                 return userService.findByUsername(username)
-                        .flatMap(user -> {
-                            // Create new authentication
-                            Authentication auth = new UsernamePasswordAuthenticationToken(
-                                    user.getUsername(),
-                                    null,
-                                    roleService.getAuthoritiesForUser(user.getId())
-                            );
-                            
-                            // Generate new tokens
-                            return generateTokens(user, auth, ipAddress, userAgent);
-                        });
+                        .flatMap(user ->
+                            roleService.getAuthoritiesForUser(user.getId())
+                                    .map(authorities -> new UsernamePasswordAuthenticationToken(
+                                            user.getUsername(),
+                                            null,
+                                            authorities
+                                    ))
+                                    .flatMap(auth -> generateTokens(user, auth, ipAddress, userAgent))
+                        );
             });
     }
     
@@ -238,10 +235,6 @@ public class AuthService {
                             log.error("   ❌ Token save failed: {}", e.getMessage());
                             log.error("   Stack trace:", e);
                         })
-                        .onErrorResume(e -> {
-                            log.warn("   ⚠️ Continuing without token save");
-                            return Mono.empty();
-                        })
                         .then(Mono.defer(() -> {
                             log.info("2. Testing Session Creation...");
                             return sessionService.createSession(user.getId().toString(), ipAddress, userAgent)
@@ -249,10 +242,6 @@ public class AuthService {
                                     .doOnError(e -> {
                                         log.error("   ❌ Session creation failed: {}", e.getMessage());
                                         log.error("   Stack trace:", e);
-                                    })
-                                    .onErrorResume(e -> {
-                                        log.warn("   ⚠️ Continuing without session");
-                                        return Mono.empty();
                                     })
                                     .thenReturn(AuthResponse.builder()
                                             .accessToken(accessToken)

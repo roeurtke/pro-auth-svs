@@ -73,7 +73,7 @@ CREATE TABLE tbl_role_permission (
 CREATE TABLE tbl_token (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
-    token VARCHAR(512) UNIQUE NOT NULL,
+    token TEXT UNIQUE NOT NULL,
     token_type VARCHAR(20) NOT NULL,
     revoked BOOLEAN DEFAULT false,
     expired BOOLEAN DEFAULT false,
@@ -86,7 +86,7 @@ CREATE TABLE tbl_token (
 CREATE TABLE tbl_session (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
-    session_token VARCHAR(512) UNIQUE NOT NULL,
+    session_token TEXT UNIQUE NOT NULL,
     ip_address VARCHAR(45),
     user_agent TEXT,
     device_info VARCHAR(255),

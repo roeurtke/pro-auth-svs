@@ -23,6 +23,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -261,32 +262,14 @@ public class RoleService {
                 .map(HashSet::new);
     }
     
-    public Set<GrantedAuthority> getAuthoritiesForUser(Long userId) {
-        Set<GrantedAuthority> authorities = new HashSet<>();
-
-        Set<String> roleAuthorities = roleRepository.findByUserId(userId)
-                .map(role -> "ROLE_" + role.getCode())
-                .collect(Collectors.toSet())
-                .block();
-
-        if (roleAuthorities != null) {
-            roleAuthorities.forEach(code -> authorities.add(new SimpleGrantedAuthority(code)));
-        }
-
-        Set<String> permissionAuthorities = permissionRepository.findByUserId(userId)
-                .collect(
-                        HashSet<String>::new,
-                        (set, permission) -> {
-                            set.add(permission.getCode());
-                        }
+    public Mono<Set<GrantedAuthority>> getAuthoritiesForUser(Long userId) {
+        return Flux.concat(
+                        roleRepository.findByUserId(userId)
+                                .map(role -> new SimpleGrantedAuthority(role.getCode())),
+                        permissionRepository.findByUserId(userId)
+                                .map(permission -> new SimpleGrantedAuthority(permission.getCode()))
                 )
-                .block();
-
-        if (permissionAuthorities != null) {
-            permissionAuthorities.forEach(code -> authorities.add(new SimpleGrantedAuthority(code)));
-        }
-
-        return authorities;
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
     
     public RoleResponse mapToResponse(Role role) {

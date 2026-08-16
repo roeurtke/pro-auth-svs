@@ -33,12 +33,11 @@ public class CustomUserDetailsService implements ReactiveUserDetailsService {
                     return Mono.error(new UsernameNotFoundException("User not found: " + username));
                 }))
                 .doOnNext(user -> log.debug("Found user: {} with id: {}", user.getUsername(), user.getId()))
-                .flatMap(user -> 
-                    // Get authorities synchronously since getAuthoritiesForUser returns Set<GrantedAuthority>
-                    Mono.fromCallable(() -> roleService.getAuthoritiesForUser(user.getId()))
+                .flatMap(user ->
+                    roleService.getAuthoritiesForUser(user.getId())
                         .onErrorResume(e -> {
                             log.warn("Failed to get authorities for user {}: {}", user.getUsername(), e.getMessage());
-                            return Mono.just(new HashSet<>());
+                            return Mono.just(new HashSet<GrantedAuthority>());
                         })
                         .map(authorities -> convertToUserDetails(user, authorities))
                 )
