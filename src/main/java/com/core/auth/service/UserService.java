@@ -140,6 +140,9 @@ public class UserService {
     public Mono<User> updateUser(Long userId, UserUpdateRequest request) {
         return findById(userId)
                 .flatMap(user -> {
+                    if (request.getUsername() != null) {
+                        user.setUsername(request.getUsername());
+                    }
                     if (request.getFirstName() != null) {
                         user.setFirstName(request.getFirstName());
                     }
