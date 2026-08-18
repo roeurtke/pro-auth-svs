@@ -92,6 +92,11 @@ public class AuditLogService {
         return log(userId, "USER_UPDATE", "USER", userId.toString(),
                 null, description, null, null, true, null);
     }
+
+    public Mono<AuditLog> logUserDeletion(Long userId) {
+        return log(userId, "USER_DELETE", "USER", userId.toString(),
+                null, null, null, null, true, null);
+    }
     
     public Mono<AuditLog> logUserEnable(Long userId) {
         return log(userId, "USER_ENABLE", "USER", userId.toString(),

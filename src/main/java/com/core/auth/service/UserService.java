@@ -189,6 +189,13 @@ public class UserService {
     }
 
     @Transactional
+    public Mono<Void> deleteUser(Long userId) {
+        return findById(userId)
+                .flatMap(user -> userRepository.delete(user)
+                        .doOnSuccess(v -> auditLogService.logUserDeletion(userId)));
+    }
+
+    @Transactional
     public Mono<Void> changePassword(Long userId, String oldPassword, String newPassword) {
         return findById(userId)
                 .flatMap(user -> {

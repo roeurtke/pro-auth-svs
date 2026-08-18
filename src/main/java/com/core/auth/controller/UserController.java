@@ -99,4 +99,13 @@ public class UserController {
         return userService.updateUser(id, request)
                 .map(user -> ApiResponse.success("User updated successfully", userService.mapToResponse(user)));
     }
+    
+    @DeleteMapping("/{id}")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Delete user")
+    @PreAuthorize("hasAuthority('USER_DELETE')")
+    public Mono<ApiResponse<Void>> deleteUser(@PathVariable Long id) {
+        return userService.deleteUser(id)
+                .thenReturn(ApiResponse.success("User deleted successfully", null));
+    }
 }
