@@ -3,7 +3,7 @@
     "dockerComposeFile": [
         "../docker-compose.yml"
     ],
-    "service": "pro-auth-svs",
+    "service": "auth",
     "workspaceFolder": "/workspace/pro-auth-svs",
     "customizations": {
         "vscode": {

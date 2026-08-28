@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  pro-auth-svs:
+  auth:
     build:
       context: .devcontainer
       dockerfile: Dockerfile
