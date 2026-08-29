@@ -132,10 +132,22 @@ public class UserService implements ReactiveUserDetailsService {
     }
 
     private Mono<User> assignUserRoles(User user, java.util.Collection<Long> roleIds) {
-        if (roleIds == null || roleIds.isEmpty()) {
-            return Mono.just(user);
-        }
+        return Mono.defer(() -> {
+            java.util.Collection<Long> resolvedRoleIds;
 
+            if (roleIds == null || roleIds.isEmpty()) {
+                return roleRepository.findByName("USER")
+                    .switchIfEmpty(Mono.error(new RuntimeException("Default USER role not found")))
+                    .map(role -> java.util.Collections.singletonList(role.getId()))
+                    .flatMap(ids -> assignRoleIds(user, ids));
+            }
+
+            resolvedRoleIds = roleIds;
+            return assignRoleIds(user, resolvedRoleIds);
+        });
+    }
+
+    private Mono<User> assignRoleIds(User user, java.util.Collection<Long> roleIds) {
         return userRoleRepository.deleteByUserId(user.getId())
             .thenMany(Flux.fromIterable(roleIds))
             .flatMap(roleId -> roleRepository.findByIdAndIsDeletedFalse(roleId)
