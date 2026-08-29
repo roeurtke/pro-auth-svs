@@ -45,9 +45,6 @@ public class UserResponse {
     @Schema(description = "Last update timestamp")
     private LocalDateTime modifiedAt;
 
-    @Schema(description = "Last recorded authenticated activity timestamp")
-    private LocalDateTime lastActiveAt;
-
     @Schema(description = "User created by user ID")
     private Long publishedId;
 
@@ -90,12 +87,9 @@ public class UserResponse {
     public LocalDateTime getModifiedAt() { return modifiedAt; }
     public void setModifiedAt(LocalDateTime modifiedAt) { this.modifiedAt = modifiedAt; }
 
-    public LocalDateTime getLastActiveAt() { return lastActiveAt; }
-    public void setLastActiveAt(LocalDateTime lastActiveAt) { this.lastActiveAt = lastActiveAt; }
-
     public Long getPublishedId() { return publishedId; }
     public void setPublishedId(Long publishedId) { this.publishedId = publishedId; }
 
     public Long getModifiedId() { return modifiedId; }
     public void setModifiedId(Long modifiedId) { this.modifiedId = modifiedId; }
-}
+}

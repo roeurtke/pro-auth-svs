@@ -31,9 +31,6 @@ public interface UserRepository extends ReactiveCrudRepository<User, Long> {
     Mono<Long> countByIsDeletedFalse();
 
     Mono<User> findByIdAndIsDeletedFalse(Long id);
-
-    @Query("UPDATE tbl_user SET last_active_at = CURRENT_TIMESTAMP WHERE id = :id")
-    reactor.core.publisher.Mono<Integer> updateLastActiveAt(Long id);
     
     Mono<Boolean> existsByUsername(String username);
     Mono<Boolean> existsByUsernameAndIsDeletedFalse(String username);
@@ -47,4 +44,4 @@ public interface UserRepository extends ReactiveCrudRepository<User, Long> {
         "LEFT JOIN tbl_role r ON ur.role_id = r.id " +
         "WHERE u.username = :username AND u.is_deleted = false")
     Mono<User> findByUsernameWithRoles(String username);
-}
+}

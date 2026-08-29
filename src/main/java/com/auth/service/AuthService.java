@@ -27,22 +27,19 @@ public class AuthService {
     private final UserRoleRepository userRoleRepository;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
-    private final UserActivityService activityService;
 
     public AuthService(
         UserService userService,
         RoleRepository roleRepository,
         UserRoleRepository userRoleRepository,
         JwtService jwtService,
-        PasswordEncoder passwordEncoder,
-        UserActivityService activityService
+        PasswordEncoder passwordEncoder
     ) {
         this.userService = userService;
         this.roleRepository = roleRepository;
         this.userRoleRepository = userRoleRepository;
         this.jwtService = jwtService;
         this.passwordEncoder = passwordEncoder;
-        this.activityService = activityService;
     }
 
     /**
@@ -111,11 +108,8 @@ public class AuthService {
                 String accessToken = jwtService.generateAccessToken(user);
                 String refreshToken = jwtService.generateRefreshToken(user);
                 Long expiresIn = jwtService.extractExpiration(accessToken).getTime() - System.currentTimeMillis();
-                return activityService.recordAuth("LOGIN_SUCCESS", user.getId(), user.getUsername(), true)
-                    .thenReturn(new AuthResponse(accessToken, refreshToken, expiresIn));
-            })
-            .onErrorResume(error -> activityService.recordAuth("LOGIN_FAILED", null, request.getUsername(), false)
-                .then(Mono.error(error)));
+                return Mono.just(new AuthResponse(accessToken, refreshToken, expiresIn));
+            });
     }
 
     /**
@@ -125,23 +119,19 @@ public class AuthService {
      * @return a Mono emitting AuthResponse containing new access and refresh tokens
      */
     public Mono<AuthResponse> refreshToken(String refreshToken) {
-        return Mono.defer(() -> {
-            if (!jwtService.validateToken(refreshToken)) {
-                return Mono.<AuthResponse>error(new RuntimeException("Invalid refresh token"));
-            }
+        if (!jwtService.validateToken(refreshToken)) {
+            return Mono.error(new RuntimeException("Invalid refresh token"));
+        }
 
-            String username = jwtService.extractUsername(refreshToken);
-            return userService.findByUsername(username)
-            .flatMap(userDetails -> {
-                User user = (User) userDetails;
+        String username = jwtService.extractUsername(refreshToken);
+
+        return userService.findByUsername(username)
+            .flatMap(user -> {
                 String newAccessToken = jwtService.generateAccessToken(user);
                 String newRefreshToken = jwtService.generateRefreshToken(user);
                 Long expiresIn = jwtService.extractExpiration(newAccessToken).getTime() - System.currentTimeMillis();
-                return activityService.recordAuth("TOKEN_REFRESH", user.getId(), user.getUsername(), true)
-                    .thenReturn(new AuthResponse(newAccessToken, newRefreshToken, expiresIn));
+                return Mono.just(new AuthResponse(newAccessToken, newRefreshToken, expiresIn));
             });
-        }).onErrorResume(error -> activityService.recordAuth("TOKEN_REFRESH_FAILED", null, null, false)
-            .then(Mono.error(error)));
     }
 
     /**
@@ -152,15 +142,9 @@ public class AuthService {
      * @return a Mono indicating completion of logout operation
      */
     public Mono<Void> logout(String accessToken, String refreshToken) {
-        String username = jwtService.extractUsername(accessToken);
-        jwtService.revokeUser(username);
+        jwtService.revokeUser(jwtService.extractUsername(accessToken));
         jwtService.revokeToken(accessToken);
         jwtService.revokeToken(refreshToken);
-        return userService.findByUsername(username)
-            .flatMap(userDetails -> {
-                User user = (User) userDetails;
-                return activityService.recordAuth("LOGOUT", user.getId(), user.getUsername(), true);
-            })
-            .switchIfEmpty(activityService.recordAuth("LOGOUT", null, username, true));
+        return Mono.empty();
     }
-}
+}

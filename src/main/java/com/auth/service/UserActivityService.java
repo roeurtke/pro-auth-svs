@@ -4,6 +4,7 @@ import com.auth.model.UserActivity;
 import com.auth.repository.UserActivityRepository;
 import com.auth.repository.UserRepository;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
@@ -35,6 +36,24 @@ public class UserActivityService {
             .then();
     }
 
+    /**
+     * Record Login Success/Failure with full request metadata (IP, User-Agent)
+     */
+    public Mono<Void> recordLogin(Long userId, String username, boolean successful, String ipAddress, String userAgent, String details) {
+        UserActivity activity = UserActivity.builder()
+            .userId(userId)
+            .username(username)
+            .eventType(successful ? "LOGIN_SUCCESS" : "LOGIN_FAILED")
+            .ipAddress(ipAddress)
+            .userAgent(userAgent)
+            .successful(successful)
+            .details(details)
+            .build();
+
+        return record(activity)
+            .then(successful && userId != null ? updateLastActive(userId) : Mono.empty());
+    }
+
     public Mono<Void> recordAuth(String eventType, Long userId, String username, boolean successful) {
         return record(UserActivity.builder()
             .userId(userId)
@@ -53,6 +72,7 @@ public class UserActivityService {
     }
 
     public Mono<Void> updateLastActive(Long userId) {
+        if (userId == null) return Mono.empty();
         return userRepository.updateLastActiveAt(userId)
             .onErrorResume(error -> Mono.empty())
             .then();
@@ -62,7 +82,7 @@ public class UserActivityService {
         return activityRepository.count(userId).onErrorReturn(0L);
     }
 
-    public reactor.core.publisher.Flux<UserActivity> findRecent(Long userId, int size, long offset) {
+    public Flux<UserActivity> findRecent(Long userId, int size, long offset) {
         return activityRepository.findRecent(userId, size, offset);
     }
 }

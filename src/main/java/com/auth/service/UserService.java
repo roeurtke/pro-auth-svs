@@ -45,7 +45,6 @@ public class UserService implements ReactiveUserDetailsService {
     private final RolePermissionRepository rolePermissionRepository;
     private final PermissionRepository permissionRepository;
     private final PasswordEncoder passwordEncoder;
-    private final UserActivityService activityService;
     
     public UserService(
         UserRepository userRepository,
@@ -53,8 +52,7 @@ public class UserService implements ReactiveUserDetailsService {
         RoleRepository roleRepository,
         RolePermissionRepository rolePermissionRepository,
         PermissionRepository permissionRepository,
-        PasswordEncoder passwordEncoder,
-        UserActivityService activityService
+        PasswordEncoder passwordEncoder
     ) {
         this.userRepository = userRepository;
         this.userRoleRepository = userRoleRepository;
@@ -62,7 +60,6 @@ public class UserService implements ReactiveUserDetailsService {
         this.rolePermissionRepository = rolePermissionRepository;
         this.permissionRepository = permissionRepository;
         this.passwordEncoder = passwordEncoder;
-        this.activityService = activityService;
     }
     
     @Override
@@ -239,9 +236,7 @@ public class UserService implements ReactiveUserDetailsService {
                     user.setPublishedId(currentUserId);
 
                     return userRepository.save(user)
-                        .flatMap(savedUser -> assignUserRoles(savedUser, request.getRoles())
-                            .then(activityService.recordUserChange("USER_CREATED", currentUserId, savedUser.getId()))
-                            .thenReturn(savedUser));
+                        .flatMap(savedUser -> assignUserRoles(savedUser, request.getRoles()));
                 })))
             .flatMap(user -> loadUserRoles(user).thenReturn(user))
             .flatMap(this::mapUserToDto);
@@ -302,9 +297,7 @@ public class UserService implements ReactiveUserDetailsService {
                                 return userRepository.save(updatedUser);
                             });
                         })
-                        .flatMap(savedUser -> assignUserRoles(savedUser, userResponse.getRoles())
-                            .then(activityService.recordUserChange("USER_UPDATED", currentUserId, savedUser.getId()))
-                            .thenReturn(savedUser)))
+                        .flatMap(savedUser -> assignUserRoles(savedUser, userResponse.getRoles())))
                 .flatMap(user -> loadUserRoles(user).thenReturn(user))
                 .flatMap(this::mapUserToDto);
     }
@@ -329,9 +322,7 @@ public class UserService implements ReactiveUserDetailsService {
                             user.setPassword(passwordEncoder.encode(newPassword));
                             user.setModifiedAt(LocalDateTime.now());
                             user.setModifiedId(currentUserId);
-                            return userRepository.save(user)
-                                .flatMap(saved -> activityService.recordUserChange("USER_PASSWORD_CHANGED", currentUserId, saved.getId())
-                                    .thenReturn(saved));
+                            return userRepository.save(user);
                         }))
                 .then();
     }
@@ -350,9 +341,7 @@ public class UserService implements ReactiveUserDetailsService {
                     user.setStatus(EnumStatus.DELETED.getValue());
                     user.setModifiedAt(LocalDateTime.now());
                     user.setModifiedId(currentUserId);
-                    return userRepository.save(user)
-                        .flatMap(saved -> activityService.recordUserChange("USER_DELETED", currentUserId, saved.getId())
-                            .thenReturn(saved));
+                    return userRepository.save(user);
                 })
             )
             .then();
@@ -381,10 +370,9 @@ public class UserService implements ReactiveUserDetailsService {
         }
         dto.setPublishedAt(user.getPublishedAt());
         dto.setModifiedAt(user.getModifiedAt());
-        dto.setLastActiveAt(user.getLastActiveAt());
         dto.setPublishedId(user.getPublishedId());
         dto.setModifiedId(user.getModifiedId());
         
         return Mono.just(dto);
     }
-}
+}

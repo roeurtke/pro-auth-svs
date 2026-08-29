@@ -27,7 +27,6 @@ public class PasswordResetService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JavaMailSender mailSender;
-    private final UserActivityService activityService;
     private final String fromAddress;
     private final Duration codeLifetime;
     private final SecureRandom secureRandom = new SecureRandom();
@@ -37,14 +36,12 @@ public class PasswordResetService {
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             JavaMailSender mailSender,
-            UserActivityService activityService,
             @Value("${app.password-reset.from:${spring.mail.username:}}") String fromAddress,
             @Value("${app.password-reset.code-lifetime:10m}") Duration codeLifetime
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.mailSender = mailSender;
-        this.activityService = activityService;
         this.fromAddress = fromAddress;
         this.codeLifetime = codeLifetime;
     }
@@ -54,8 +51,7 @@ public class PasswordResetService {
                 .flatMap(user -> {
                     String code = String.format("%04d", secureRandom.nextInt(10000));
                     resetCodes.put(email, new ResetCode(code, Instant.now().plus(codeLifetime)));
-                    return sendEmail(user, code)
-                        .then(activityService.recordAuth("PASSWORD_RESET_REQUESTED", user.getId(), user.getUsername(), true));
+                    return sendEmail(user, code);
                 })
                 .then();
     }
@@ -75,9 +71,7 @@ public class PasswordResetService {
                 .flatMap(user -> {
                     user.setPassword(passwordEncoder.encode(newPassword));
                     user.setModifiedAt(java.time.LocalDateTime.now());
-                    return userRepository.save(user)
-                        .flatMap(saved -> activityService.recordAuth("PASSWORD_RESET", saved.getId(), saved.getUsername(), true)
-                            .thenReturn(saved));
+                    return userRepository.save(user);
                 })
                 .doOnSuccess(ignored -> resetCodes.remove(email))
                 .then();

@@ -45,7 +45,6 @@ public class User implements UserDetails, CredentialsContainer {
     private Boolean isDeleted = false;
     private LocalDateTime publishedAt;
     private LocalDateTime modifiedAt;
-    private LocalDateTime lastActiveAt;
     private Long publishedId;
     private Long modifiedId;
 
