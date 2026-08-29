@@ -1,5 +1,6 @@
 package com.auth.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDateTime;
@@ -37,6 +38,7 @@ public class UserResponse {
     private Boolean isDeleted;
     
     @Schema(description = "User roles")
+    @JsonAlias({"roleIds"})
     private List<Long> roles;
     
     @Schema(description = "Creation timestamp")
