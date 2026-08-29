@@ -21,7 +21,6 @@
     <properties>
         <java.version>21</java.version>
         <jjwt.version>0.11.5</jjwt.version>
-        <start-class>com.auth.AuthApplication</start-class>
     </properties>
 
     <dependencies>
@@ -86,13 +85,6 @@
             <artifactId>jjwt-jackson</artifactId>
             <version>${jjwt.version}</version>
             <scope>runtime</scope>
-        </dependency>
-
-        <!-- Argon2 Password Hashing -->
-        <dependency>
-            <groupId>de.mkammerer</groupId>
-            <artifactId>argon2-jvm</artifactId>
-            <version>2.11</version>
         </dependency>
 
         <!-- OpenAPI for WebFlux -->
